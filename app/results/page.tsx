@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, Suspense, useRef, useCallback } from 'react';
-import Navbar from '../components/Navbar';
 import FilterSidebar from '../components/FilterSidebar';
 import SchoolCard from '../components/SchoolCard';
 import SchoolDetail from '../components/SchoolDetail';
 import DepartmentList from '../components/DepartmentList';
+import CompactSearchBar from '../components/CompactSearchBar';
 import { useSearchParams } from 'next/navigation';
 import './results.css';
 
@@ -315,7 +315,12 @@ function ResultsContent() {
     <div className="results-page">
       {/* Fixed Header Area */}
       <div className={`results-header ${headerVisible ? 'visible' : 'hidden'}`}>
-        <Navbar />
+        <div className="header-inner-row">
+          <a href="/" className="header-logo">UniHow</a>
+          <div className="header-search-bar">
+            <CompactSearchBar />
+          </div>
+        </div>
       </div>
 
       {/* Filter Overlay */}
