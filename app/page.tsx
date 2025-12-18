@@ -54,9 +54,14 @@ export default function Home() {
       </section>
 
       <style jsx>{`
+        /* ========================================= */
+        /*   🎨 CSS 樣式教學區 (Style Guide)          */
+        /*   修改這裡的數值可以改變網頁的外觀          */
+        /* ========================================= */
+
         .hero-section {
-          background: #0f172a; /* Dark blue background */
-          padding: 80px 20px 120px;
+          background: #0f172a; /* 背景顏色 (色碼或顏色名稱) */
+          padding: 80px 20px 120px; /* 內距：上 左右 下 */
           text-align: left;
           display: flex;
           justify-content: center;
@@ -64,19 +69,19 @@ export default function Home() {
 
         .hero-content {
           width: 100%;
-          max-width: 1000px;
+          max-width: 1000px; /* 最大寬度，限制內容不擴散太寬 */
         }
 
         .hero-title {
-          font-size: 2.5rem;
-          color: white;
-          font-weight: 700;
-          margin-bottom: 10px;
+          font-size: 2.5rem; /* 字體大小 (2.5倍根元素大小) */
+          color: white;      /* 文字顏色 */
+          font-weight: 700;  /* 字體粗細 (400=正常, 700=粗體) */
+          margin-bottom: 10px; /* 下方間距 */
         }
 
         .hero-subtitle {
           font-size: 1rem;
-          color: rgba(255, 255, 255, 0.7);
+          color: rgba(255, 255, 255, 0.7); /* 半透明白色 */
           margin-bottom: 40px;
         }
 
@@ -88,7 +93,7 @@ export default function Home() {
         .info-cards-section {
           background: white;
           padding: 0 20px;
-          margin-top: -60px; /* Overlap with hero */
+          margin-top: -60px; /* 負邊距：讓區塊向上重疊 */
           display: flex;
           justify-content: center;
           position: relative;
@@ -97,19 +102,19 @@ export default function Home() {
 
         .cards-container {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 20px;
+          grid-template-columns: repeat(3, 1fr); /* 建立三欄 */
+          gap: 20px; /* 格子間距 */
           width: 100%;
           max-width: 1000px;
         }
 
         .info-card {
-          background: #e5e7eb; /* Light gray placeholder */
-          height: 200px;
-          border-radius: 20px;
+          background: #e5e7eb;
+          height: 200px;     /* 卡片高度 */
+          border-radius: 20px; /* 圓角程度 */
           position: relative;
           display: flex;
-          align-items: flex-end;
+          align-items: flex-end; /* 內容對齊底部 */
           padding: 20px;
         }
 
@@ -127,30 +132,32 @@ export default function Home() {
           gap: 5px;
         }
 
+        /* --- 廣告區塊樣式 (Ad Style) --- */
         .ad-section {
           background: white;
-          padding: 60px 20px;
+          padding: 60px 20px; /* 上下留白 */
           display: flex;
           justify-content: center;
         }
 
         .ad-box {
-          background: #e5e7eb;
+          background: #e5e7eb; /* 廣告背景灰 */
           width: 100%;
           max-width: 1000px;
-          height: 200px;
+          height: 200px;     /* 廣告高度 */
           border-radius: 20px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 3rem;
+          font-size: 3rem;   /* 字太小改這裡 */
           font-weight: 900;
-          color: black;
+          color: black;      /* 字體顏色 */
         }
 
+        /* 手機版響應式設定 */
         @media (max-width: 768px) {
           .cards-container {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr; /* 手機上改為單欄 */
           }
         }
       `}</style>
