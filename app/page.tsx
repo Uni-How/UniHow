@@ -1,471 +1,159 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Navbar from './components/Navbar';
+import HeroSearch from './components/HeroSearch';
 
-interface ISchool {
-  _id: string;
-  school_id: string;
-  school_name: string;
-  school_type: string;
-  school_images: string[];
-  school_url?: string;
-  campuses: {
-    campus_id: string;
-    campus_name: string;
-    is_main: boolean;
-    location: {
-      city: string;
-      district: string;
-      address: string;
-      google_map_url?: string;
-    };
-  }[];
-  departments: {
-    department_id: string;
-    department_name: string;
-    college: string;
-    academic_group: string; // NEW
-    campus_ids: string[];
-    admission_data?: any;
-  }[];
-}
+// --- Homepage (首頁 / Landing Page) ---
+// 此頁面設計為靜態入口，專注於「引導使用者搜尋」，不直接顯示結果。
+// 這樣的設計可以讓首頁載入更快，並將複雜的資料邏輯隔離在 /results 頁面。
 
 export default function Home() {
-  const [schools, setSchools] = useState<ISchool[]>([]);
-  const [filteredSchools, setFilteredSchools] = useState<ISchool[]>([]);
-  const [selectedSchool, setSelectedSchool] = useState<ISchool | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  // Metadata state
-  const [metadata, setMetadata] = useState<{
-    academic_groups: string[];
-    colleges: string[];
-    regions: string[];
-    cities: string[];
-  }>({
-    academic_groups: [],
-    colleges: [],
-    regions: [],
-    cities: []
-  });
-
-  // Filter states
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-
-  useEffect(() => {
-    async function fetchSchools() {
-      try {
-        const res = await fetch('/api/schools');
-        if (!res.ok) throw new Error('Failed to fetch');
-        const data = await res.json();
-        
-        // Handle new API structure { metadata, schools }
-        if (data.schools && data.metadata) {
-          setSchools(data.schools);
-          setFilteredSchools(data.schools);
-          setMetadata(data.metadata);
-          if (data.schools.length > 0) {
-            setSelectedSchool(data.schools[0]);
-          }
-        } else if (Array.isArray(data)) {
-          // Fallback for old API structure
-          setSchools(data);
-          setFilteredSchools(data);
-          if (data.length > 0) {
-            setSelectedSchool(data[0]);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch schools:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchSchools();
-  }, []);
-
-  // Apply filters whenever filter states change
-  useEffect(() => {
-    let filtered = schools;
-
-    // Region filter
-    if (selectedRegions.length > 0) {
-      filtered = filtered.filter(school => {
-        const mainCampus = school.campuses.find(c => c.is_main);
-        const city = mainCampus?.location.city || '';
-        
-        // Use metadata regions if available, or fallback to hardcoded logic
-        // For now, let's keep the hardcoded logic as the API returns regions but we need to map school city to region
-        // Actually, we can use the metadata.regions list for the UI, but for filtering we still need to know which city belongs to which region.
-        // The API returns regions, but the school object only has city.
-        // Let's keep the client-side mapping for now to ensure filtering works.
-        return selectedRegions.some(region => {
-          if (region === '北北基') return city.includes('台北') || city.includes('新北') || city.includes('基隆');
-          if (region === '桃竹苗') return city.includes('桃園') || city.includes('新竹') || city.includes('苗栗');
-          if (region === '中彰投') return city.includes('台中') || city.includes('彰化') || city.includes('南投');
-          if (region === '雲嘉南') return city.includes('雲林') || city.includes('嘉義') || city.includes('台南');
-          if (region === '高屏') return city.includes('高雄') || city.includes('屏東');
-          if (region === '宜花東') return city.includes('宜蘭') || city.includes('花蓮') || city.includes('台東');
-          if (region === '離島') return city.includes('澎湖') || city.includes('金門') || city.includes('連江');
-          return false;
-        });
-      });
-    }
-
-    // Academic group filter
-    if (selectedGroups.length > 0) {
-      filtered = filtered.filter(school => {
-        return school.departments.some(dept => 
-          selectedGroups.includes(dept.academic_group)
-        );
-      });
-    }
-
-    setFilteredSchools(filtered);
-    
-    // Auto-select first filtered school
-    if (filtered.length > 0) {
-      setSelectedSchool(filtered[0]);
-    } else {
-      setSelectedSchool(null);
-    }
-  }, [selectedRegions, selectedGroups, schools]);
-
-  const toggleRegion = (region: string) => {
-    setSelectedRegions(prev => 
-      prev.includes(region) 
-        ? prev.filter(r => r !== region)
-        : [...prev, region]
-    );
-  };
-
-  const toggleGroup = (group: string) => {
-    setSelectedGroups(prev => 
-      prev.includes(group) 
-        ? prev.filter(g => g !== group)
-        : [...prev, group]
-    );
-  };
-
-  // Get main campus location
-  const getMainLocation = (school: ISchool) => {
-    const mainCampus = school.campuses.find(c => c.is_main);
-    if (mainCampus) {
-      return `${mainCampus.location.city}${mainCampus.location.district}`;
-    }
-    return school.campuses[0] ? `${school.campuses[0].location.city}${school.campuses[0].location.district}` : '未知';
-  };
-
-  // Get school image
-  const getSchoolImage = (school: ISchool) => {
-    if (school.school_images && school.school_images.length > 0) {
-      return school.school_images[0];
-    }
-    return `https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=1200&auto=format&fit=crop`;
-  };
-
-  if (loading) {
-    return <div style={{ padding: '2rem', textAlign: 'center' }}>載入中...</div>;
-  }
-
   return (
     <>
-      {/* Top Navy Header */}
-      <header className="navy-header">
-        <div className="header-inner">
-          <div className="logo">UniHow</div>
-
-          <div className="header-right">
-            <button className="icon-btn" aria-label="搜尋">
-              <span className="icon magnifier" aria-hidden="true"></span>
-            </button>
-            <button className="icon-btn" aria-label="選單">
-              <span className="icon menu" aria-hidden="true"></span>
-            </button>
-            <button className="cta-search">搜尋</button>
-          </div>
-        </div>
-      </header>
-
-      {/* Segmented Filters Bar */}
-      <section className="segbar-wrap">
-        <div className="segbar">
-          <div className="seg seg-active seg-left">
-            <div className="seg-label">入學方式</div>
-            <div className="seg-value">申請</div>
-          </div>
-          <div className="seg">
-            <div className="seg-label">學測成績</div>
-            <div className="seg-value compact">國:--　英:--　數A:--　數B:--　自:--　社:--</div>
-          </div>
-          <div className="seg">
-            <div className="seg-label">英聽成績</div>
-            <div className="seg-value">A</div>
-          </div>
-          <div className="seg">
-            <div className="seg-label">學群偏好</div>
-            <div className="seg-value">二類</div>
-          </div>
-          <div className="seg seg-right">
-            <div className="seg-label">公/私立</div>
-            <div className="seg-value">公立</div>
+      <Navbar />
+      
+      {/* Hero Section (主視覺與搜尋區) */}
+      <section className="hero-section">
+        <div className="hero-content">
+          <h1 className="hero-title">找學校，跟找飯店一樣簡單！</h1>
+          <p className="hero-subtitle">TESTINGGGGGGGGGGGGGG</p>
+          
+          <div className="search-wrapper">
+            {/* 核心搜尋組件：僅負責收集使用者條件並跳轉 */}
+            <HeroSearch />
           </div>
         </div>
       </section>
 
-      {/* Action Chips Row */}
-      <section className="actions-row">
-        <div className="tabs">
-          <button className="tab active">選校</button>
-          <button className="tab">選系</button>
-        </div>
-        <div className="actions">
-          <button className="chip">匯出表格</button>
-          <button className="chip">儲存搜尋結果</button>
-          <button className="chip">排序方式: 過篩機率</button>
-          <button className="chip ghost">進階搜尋</button>
+      {/* Info Cards Section (資訊卡片 - 靜態導引) */}
+      <section className="info-cards-section">
+        <div className="cards-container">
+          <div className="info-card">
+            <div className="card-btn-area">
+              <button className="card-btn">查看招生簡章 ➜</button>
+            </div>
+          </div>
+          <div className="info-card">
+             <div className="card-btn-area">
+              <button className="card-btn">查看歷屆資料 ➜</button>
+            </div>
+          </div>
+          <div className="info-card">
+             <div className="card-btn-area">
+              <button className="card-btn">查看重要時程 ➜</button>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Main Two-Column Content */}
-      <main className="content twocol">
-        {/* Left Sidebar Filters - NOW FUNCTIONAL */}
-        <aside className="sidebar">
-          <div className="muted-row">
-            <span>篩選結果：{filteredSchools.length} 所學校</span>
-            {(selectedRegions.length > 0 || selectedGroups.length > 0) && (
-              <a 
-                href="#" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSelectedRegions([]);
-                  setSelectedGroups([]);
-                }}
-              >
-                清除
-              </a>
-            )}
-          </div>
+      {/* Footer / Ad Space */}
+      <section className="ad-section">
+        <div className="ad-box">
+          <h2>廣 告</h2>
+        </div>
+      </section>
 
-          <div className="filter-group">
-            <button className="filter-title" aria-expanded="true">
-              <span>地區：</span>
-              <span className="caret"></span>
-            </button>
-            <div className="checklist">
-              {(metadata.regions.length > 0 ? metadata.regions : ['北北基', '桃竹苗', '宜花東', '中彰投', '雲嘉南', '高屏', '離島']).map(region => (
-                <label key={region}>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedRegions.includes(region)}
-                    onChange={() => toggleRegion(region)}
-                  /> {region}
-                </label>
-              ))}
-            </div>
-          </div>
+      <style jsx>{`
+        .hero-section {
+          background: #0f172a; /* Dark blue background */
+          padding: 80px 20px 120px;
+          text-align: left;
+          display: flex;
+          justify-content: center;
+        }
 
-          <hr className="sep" />
+        .hero-content {
+          width: 100%;
+          max-width: 1000px;
+        }
 
-          <div className="filter-group">
-            <button className="filter-title" aria-expanded="true">
-              <span>學群：</span>
-              <span className="caret"></span>
-            </button>
-            <div className="checklist long">
-              {(metadata.academic_groups.length > 0 ? metadata.academic_groups : []).map(group => (
-                <label key={group}>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedGroups.includes(group)}
-                    onChange={() => toggleGroup(group)}
-                  /> {group}
-                </label>
-              ))}
-            </div>
-          </div>
-        </aside>
+        .hero-title {
+          font-size: 2.5rem;
+          color: white;
+          font-weight: 700;
+          margin-bottom: 10px;
+        }
 
-        {/* Middle: Result List */}
-        <section className="results">
-          {filteredSchools.map((school) => (
-            <article 
-              key={school._id} 
-              className={`card horiz ${selectedSchool?._id === school._id ? 'selected' : ''}`}
-              onClick={() => setSelectedSchool(school)}
-              style={{ 
-                cursor: 'pointer',
-                border: selectedSchool?._id === school._id ? '2px solid #0F5AA8' : undefined,
-                transform: selectedSchool?._id === school._id ? 'translateX(4px)' : undefined,
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <div className="thumb">
-                <img src={getSchoolImage(school)} alt={`${school.school_name}校園照片`} />
-              </div>
-              <div className="card-body">
-                <div className="card-top">
-                  <h3>{school.school_name}</h3>
-                  <div className="kv small">可填科系數 <strong>{school.departments.length}</strong></div>
-                </div>
-                <div className="sub">{getMainLocation(school)}</div>
-                <div className="tags">
-                  {Array.from(new Set(school.departments.map(d => d.academic_group))).slice(0, 4).map((group, idx) => (
-                    <span key={idx} className={`tag ${['blue', 'lime', 'mint', 'pink'][idx % 4]}`}>
-                      {group}
-                    </span>
-                  ))}
-                </div>
-                <a className="more" href="#" onClick={(e) => e.preventDefault()}>
-                  查看詳情 <span className="arr">›</span>
-                </a>
-              </div>
-            </article>
-          ))}
+        .hero-subtitle {
+          font-size: 1rem;
+          color: rgba(255, 255, 255, 0.7);
+          margin-bottom: 40px;
+        }
 
-          {filteredSchools.length === 0 && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              {selectedRegions.length > 0 || selectedGroups.length > 0 
-                ? '沒有符合篩選條件的學校' 
-                : '目前沒有學校資料'}
-            </div>
-          )}
-        </section>
+        .search-wrapper {
+          position: relative;
+          z-index: 10;
+        }
 
-        {/* Right: Details Panel */}
-        <aside className="detail">
-          {selectedSchool ? (
-            <>
-              <div className="detail-top">
-                <img 
-                  className="rounded main-hero" 
-                  src={getSchoolImage(selectedSchool)} 
-                  alt="校園主圖" 
-                />
-                <img 
-                  className="rounded thumb-sm" 
-                  src={selectedSchool.school_images[1] || getSchoolImage(selectedSchool)} 
-                  alt="校園縮圖" 
-                />
-                <div className="map-card">
-                  <div className="map-pattern" aria-hidden="true"></div>
-                  <button className="map-btn">
-                    <span>查看地圖</span>
-                    <span className="map-icon" aria-hidden="true"></span>
-                  </button>
-                </div>
-              </div>
+        .info-cards-section {
+          background: white;
+          padding: 0 20px;
+          margin-top: -60px; /* Overlap with hero */
+          display: flex;
+          justify-content: center;
+          position: relative;
+          z-index: 20;
+        }
 
-              <h2 className="uni-title">{selectedSchool.school_name}</h2>
-              <div className="meta-links">
-                <a href={selectedSchool.school_url || '#'} target="_blank" rel="noopener noreferrer">校務資訊</a>
-                <span className="dot"></span>
-                <a href="#">傳送</a>
-              </div>
+        .cards-container {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+          width: 100%;
+          max-width: 1000px;
+        }
 
-              <div className="pill-tabs">
-                <button className="pill active">科系列表</button>
-                <button className="pill">校園資訊</button>
-              </div>
+        .info-card {
+          background: #e5e7eb; /* Light gray placeholder */
+          height: 200px;
+          border-radius: 20px;
+          position: relative;
+          display: flex;
+          align-items: flex-end;
+          padding: 20px;
+        }
 
-              <div className="detail-bottom">
-                <div className="department-list" style={{ 
-                  maxHeight: '400px', 
-                  overflowY: 'auto',
-                  marginBottom: '1rem',
-                  padding: '0.5rem',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '4px'
-                }}>
-                  {selectedSchool.departments.map((dept, idx) => (
-                    <div key={idx} style={{ 
-                      padding: '0.75rem',
-                      borderBottom: idx < selectedSchool.departments.length - 1 ? '1px solid #f0f0f0' : 'none'
-                    }}>
-                      <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
-                        {dept.department_name}
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#666', display: 'flex', gap: '0.5rem' }}>
-                        <span>{dept.college}</span>
-                        <span>•</span>
-                        <span className="tag blue" style={{ fontSize: '0.75rem', padding: '0.125rem 0.5rem' }}>
-                          {dept.academic_group}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        .card-btn {
+          background: #0f172a;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 20px;
+          font-size: 0.9rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
 
-                <div className="detailed-information">
-                  <div className="selection-order">
-                    <div className="so-table">
-                      <div className="so-head">去年(113)最低通過級分與篩選順序</div>
-                      <div className="so-body">
-                        <div className="so-row scores">
-                          <div className="col">
-                            <div className="label">國英數A自</div>
-                            <div className="value">--</div>
-                          </div>
-                          <div className="arrow" aria-hidden="true">→</div>
-                          <div className="col">
-                            <div className="label">數學A</div>
-                            <div className="value">--</div>
-                          </div>
-                          <div className="arrow" aria-hidden="true">→</div>
-                          <div className="col">
-                            <div className="label">自然</div>
-                            <div className="value">--</div>
-                          </div>
-                        </div>
-                        <hr className="divider" />
-                        <div className="so-row placeholder">
-                          <div className="col"><div className="value muted">--</div></div>
-                          <div className="arrow" aria-hidden="true">→</div>
-                          <div className="col"><div className="value muted">--</div></div>
-                          <div className="arrow" aria-hidden="true">→</div>
-                          <div className="col"><div className="value muted">--</div></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="data-table">
-                    <div className="thead">
-                      <div>科目</div>
-                      <div>門檻</div>
-                      <div>倍率</div>
-                    </div>
-                    <div className="trow">
-                      <div>國文</div><div>--</div><div>--</div>
-                    </div>
-                    <div className="trow">
-                      <div>英文</div><div>--</div><div>--</div>
-                    </div>
-                    <div className="trow">
-                      <div>數學A</div><div>--</div><div>--</div>
-                    </div>
-                    <div className="trow">
-                      <div>自然</div><div>--</div><div>--</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        .ad-section {
+          background: white;
+          padding: 60px 20px;
+          display: flex;
+          justify-content: center;
+        }
 
-              <div className="foot-note">
-                Collegeo ➜ <a href="#">查看全部</a>
-              </div>
+        .ad-box {
+          background: #e5e7eb;
+          width: 100%;
+          max-width: 1000px;
+          height: 200px;
+          border-radius: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 3rem;
+          font-weight: 900;
+          color: black;
+        }
 
-              <div className="small-note">
-                去年(113)最低通過分與篩選順序
-              </div>
-            </>
-          ) : (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              請選擇一所學校查看詳情
-            </div>
-          )}
-        </aside>
-      </main>
+        @media (max-width: 768px) {
+          .cards-container {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </>
   );
 }
