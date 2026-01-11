@@ -32,6 +32,7 @@ export default function CompactSearchBar() {
   const currentListening = searchParams.get('listening') || '';
   const currentGroup = searchParams.get('group') || '';
   const currentType = searchParams.get('type') || '';
+  const currentRegion = searchParams.get('region') || '';
   
   // States for expanded form
   const [academicYear, setAcademicYear] = useState(currentYear);
@@ -47,6 +48,7 @@ export default function CompactSearchBar() {
   const [listening, setListening] = useState(currentListening);
   const [group, setGroup] = useState(currentGroup);
   const [publicPrivate, setPublicPrivate] = useState(currentType);
+  const [region, setRegion] = useState(currentRegion);
   const [availableGroups, setAvailableGroups] = useState<string[]>([]);
 
   // 載入學群選項
@@ -90,6 +92,7 @@ export default function CompactSearchBar() {
     if (listening) params.set('listening', listening);
     if (group) params.set('group', group);
     if (publicPrivate) params.set('type', publicPrivate);
+    if (region) params.set('region', region);
 
     router.push(`/results?${params.toString()}`);
     setIsExpanded(false);
@@ -141,6 +144,12 @@ export default function CompactSearchBar() {
           <div className="bar-section">
             <span className="section-label">公/私立</span>
             <span className="section-value">{currentType || '--'}</span>
+          </div>
+
+          {/* 地區 */}
+          <div className="bar-section">
+            <span className="section-label">地區</span>
+            <span className="section-value">{currentRegion || '--'}</span>
           </div>
 
         </div>
@@ -235,6 +244,20 @@ export default function CompactSearchBar() {
                   <option value="">全部</option>
                   <option value="公立">公立</option>
                   <option value="私立">私立</option>
+                </select>
+              </div>
+
+              <div className="form-group compact">
+                <label>地區</label>
+                <select value={region} onChange={(e) => setRegion(e.target.value)}>
+                  <option value="">全部</option>
+                  <option value="北北基">北北基</option>
+                  <option value="桃竹苗">桃竹苗</option>
+                  <option value="中彰投">中彰投</option>
+                  <option value="雲嘉南">雲嘉南</option>
+                  <option value="高屏">高屏</option>
+                  <option value="宜花東">宜花東</option>
+                  <option value="離島">離島</option>
                 </select>
               </div>
 

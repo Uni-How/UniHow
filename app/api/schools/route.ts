@@ -60,6 +60,15 @@ const SUBJECT_THRESHOLDS: { [key: string]: number[] } = {
   自然: [13, 12, 9, 7, 5],
 };
 
+// 五標對照 (名稱 -> Level)
+const THRESHOLD_TO_LEVEL: { [key: string]: number } = {
+  "頂標": 5,
+  "前標": 4,
+  "均標": 3,
+  "後標": 2,
+  "底標": 1,
+};
+
 /*
  * 計算級別 (getProjectedLevel)
  * 輸入：單科分數 (score)、科目名稱 (subject)
@@ -84,6 +93,36 @@ const SUBJECT_MAP: { [key: string]: string } = {
   social: "社會",
 };
 
+// 分科科目對照 (URL key -> 中文名)
+const BIFURCATED_SUBJECT_MAP: { [key: string]: string } = {
+  bifurcatedMathIA: "數學甲",
+  bifurcatedMathIB: "數學乙",
+  bifurcatedPhysics: "物理",
+  bifurcatedChemistry: "化學",
+  bifurcatedBiology: "生物",
+  bifurcatedHistory: "歷史",
+  bifurcatedGeography: "地理",
+  bifurcatedCivics: "公民與社會",
+};
+
+// 中文科目 -> API 欄位 key (用於 scoring_weights 比對)
+const SUBJECT_TO_KEY: { [key: string]: string } = {
+  "國文": "chinese",
+  "英文": "english",
+  "數學A": "math_a",
+  "數學B": "math_b",
+  "社會": "social",
+  "自然": "nature",
+  "數學甲": "math_a",
+  "數學乙": "math_b",
+  "物理": "physics",
+  "化學": "chemistry",
+  "生物": "biology",
+  "歷史": "history",
+  "地理": "geography",
+  "公民與社會": "civic_society",
+};
+
 // 快取 Metadata
 const getSchoolMetadata = unstable_cache(
   async () => {
@@ -104,6 +143,158 @@ const getSchoolMetadata = unstable_cache(
   ["school-metadata"],
   { revalidate: 300, tags: ["metadata"] }
 );
+
+// === 落點分析輔助函式 ===
+
+interface ThresholdCheckResult {
+  allPass: boolean;
+  failedSubjects: string[];  // 未通過的科目名稱
+  details: {
+    subject: string;
+    threshold: string;
+    userLevel: number;
+    requiredLevel: number;
+    pass: boolean;
+    group?: number;
+  }[];
+}
+
+// 檢查科系門檻 (支援 AND/OR 邏輯)
+function checkExamThresholds(
+  examThresholds: any[],
+  userLevels: { [key: string]: number }
+): ThresholdCheckResult {
+  if (!examThresholds || examThresholds.length === 0) {
+    return { allPass: true, failedSubjects: [], details: [] };
+  }
+
+  const details: ThresholdCheckResult["details"] = [];
+  
+  // 按 group 分組
+  const groupedThresholds: { [groupId: number]: any[] } = {};
+  examThresholds.forEach(th => {
+    const groupId = th.group ?? 0;
+    if (!groupedThresholds[groupId]) groupedThresholds[groupId] = [];
+    groupedThresholds[groupId].push(th);
+  });
+
+  const failedGroups: number[] = [];
+  const failedSubjects: string[] = [];
+
+  // 遍歷每個 group (AND 關係)
+  for (const [groupIdStr, thresholds] of Object.entries(groupedThresholds)) {
+    const groupId = parseInt(groupIdStr);
+    let groupPassed = false; // 同一 group 內是 OR 關係，只要有一個通過即可
+
+    for (const th of thresholds) {
+      const subject = th.subject;
+      const threshold = th.threshold;
+      const requiredLevel = THRESHOLD_TO_LEVEL[threshold] || 0;
+      const userLevel = userLevels[subject] ?? 0;
+      const pass = userLevel >= requiredLevel;
+
+      details.push({
+        subject,
+        threshold,
+        userLevel,
+        requiredLevel,
+        pass,
+        group: groupId,
+      });
+
+      if (pass) {
+        groupPassed = true;
+      }
+    }
+
+    // 如果整個 group 都沒通過
+    if (!groupPassed) {
+      failedGroups.push(groupId);
+      // 記錄該 group 的所有科目為失敗
+      thresholds.forEach(th => {
+        if (!failedSubjects.includes(`${th.subject}(${th.threshold})`)) {
+          failedSubjects.push(`${th.subject}(${th.threshold})`);
+        }
+      });
+    }
+  }
+
+  return {
+    allPass: failedGroups.length === 0,
+    failedSubjects,
+    details,
+  };
+}
+
+// 計算加權分數
+function calculateWeightedScore(
+  scoringWeights: any[],
+  userGsatScores: { [key: string]: number },
+  userBifurcatedScores: { [key: string]: number }
+): { weightedScore: number; maxPossibleScore: number } {
+  if (!scoringWeights || scoringWeights.length === 0) {
+    return { weightedScore: 0, maxPossibleScore: 0 };
+  }
+
+  let weightedScore = 0;
+  let maxPossibleScore = 0;
+
+  for (const weight of scoringWeights) {
+    const subject = weight.subject;
+    const sourceType = weight.source_type; // "gsat" 或 "bifurcated"
+    const multiplier = weight.multiplier || 1;
+    const subjectKey = SUBJECT_TO_KEY[subject];
+
+    if (!subjectKey) continue;
+
+    let userScore = 0;
+    let maxScore = 0;
+
+    if (sourceType === "gsat" || sourceType === "學測") {
+      // 學測是 15 級分，轉換為 60 級 (乘4)
+      userScore = (userGsatScores[subjectKey] || 0) * 4;
+      maxScore = 60;
+    } else if (sourceType === "bifurcated" || sourceType === "分科") {
+      userScore = userBifurcatedScores[subjectKey] || 0;
+      maxScore = 60;
+    }
+
+    weightedScore += userScore * multiplier;
+    maxPossibleScore += maxScore * multiplier;
+  }
+
+  return { weightedScore, maxPossibleScore };
+}
+
+// 估計錄取機率
+function estimateProbability(
+  weightedScore: number,
+  lastYearMinScore: number | null
+): { probability: number; confidenceLevel: "high" | "medium" | "low" | "very_low" } {
+  if (lastYearMinScore === null || lastYearMinScore === 0) {
+    return { probability: 0.5, confidenceLevel: "medium" };
+  }
+
+  const diff = weightedScore - lastYearMinScore;
+  const ratio = weightedScore / lastYearMinScore;
+
+  let probability: number;
+  if (ratio >= 1.15) probability = 0.95;
+  else if (ratio >= 1.10) probability = 0.85;
+  else if (ratio >= 1.05) probability = 0.75;
+  else if (ratio >= 1.0) probability = 0.65;
+  else if (ratio >= 0.95) probability = 0.45;
+  else if (ratio >= 0.90) probability = 0.30;
+  else probability = 0.15;
+
+  let confidenceLevel: "high" | "medium" | "low" | "very_low";
+  if (probability >= 0.7) confidenceLevel = "high";
+  else if (probability >= 0.5) confidenceLevel = "medium";
+  else if (probability >= 0.3) confidenceLevel = "low";
+  else confidenceLevel = "very_low";
+
+  return { probability, confidenceLevel };
+}
 
 // --- MAIN API ROUTE (主 API 處理函式) ---
 
@@ -145,6 +336,9 @@ export async function GET(request: Request) {
     // 將 URL 中的分數參數轉換為 Level (0-5)
     // userLevels 例如: { "國文": 4, "數學A": 3 }
     const userLevels: { [key: string]: number } = {};
+    const userGsatScores: { [key: string]: number } = {}; // 原始學測分數 (15級)
+    const userBifurcatedScores: { [key: string]: number } = {}; // 分科分數 (60級)
+    
     if (hasScores) {
       scoreKeys.forEach((subj) => {
         if (searchParams.has(subj)) {
@@ -152,10 +346,35 @@ export async function GET(request: Request) {
           if (!isNaN(val) && val > 0) {
             const subjectName = SUBJECT_MAP[subj];
             userLevels[subjectName] = getProjectedLevel(val, subjectName);
+            // 儲存原始分數用於加權計算
+            const key = SUBJECT_TO_KEY[subjectName];
+            if (key) userGsatScores[key] = val;
           }
         }
       });
     }
+
+    // 解析分科成績
+    const bifurcatedKeys = Object.keys(BIFURCATED_SUBJECT_MAP);
+    const hasBifurcatedScores = bifurcatedKeys.some((k) => searchParams.has(k));
+    
+    if (hasBifurcatedScores) {
+      bifurcatedKeys.forEach((subj) => {
+        if (searchParams.has(subj)) {
+          const val = parseInt(searchParams.get(subj) || "0");
+          if (!isNaN(val) && val > 0) {
+            const subjectName = BIFURCATED_SUBJECT_MAP[subj];
+            const key = SUBJECT_TO_KEY[subjectName];
+            if (key) userBifurcatedScores[key] = val;
+          }
+        }
+      });
+    }
+
+    // 是否需要執行落點分析 (有成績輸入時)
+    const shouldCalculatePlacement = hasScores || hasBifurcatedScores;
+    // 是否包含未通過門檻的科系
+    const includeFailedThreshold = searchParams.get("includeFailedThreshold") === "true";
 
     // 4. Projection (資料投影)
     // 定義 API 回傳的欄位，排除不必要的深層資料以提升效能
@@ -568,6 +787,107 @@ export async function GET(request: Request) {
       schools = result[0].data;
     }
 
+    // === 落點分析計算 ===
+    // 如果使用者有輸入成績，為每個科系計算落點分析資料
+    if (shouldCalculatePlacement && schools && schools.length > 0) {
+      const planKey = method || "distribution_admission";
+      
+      schools = schools.map((school: any) => {
+        const enhancedDepartments = school.departments.map((dept: any) => {
+          const yearData = dept.admission_data?.[year];
+          const plan = yearData?.plans?.[planKey];
+          
+          if (!plan) {
+            return {
+              ...dept,
+              placement_analysis: null
+            };
+          }
+
+          // 檢查門檻
+          const thresholdResult = checkExamThresholds(
+            plan.exam_thresholds || [],
+            userLevels
+          );
+
+          // 計算加權分數
+          const { weightedScore, maxPossibleScore } = calculateWeightedScore(
+            plan.scoring_weights || [],
+            userGsatScores,
+            userBifurcatedScores
+          );
+
+          // 獲取去年最低錄取分數
+          // 如果是 114 年度，去 115 年度的 last_year_pass_data 找
+          // 如果是 115 年度，去 plan 本身的 last_year_pass_data 找
+          let lastYearMinScore: number | null = null;
+          if (year === "114") {
+            const year115Data = dept.admission_data?.["115"];
+            lastYearMinScore = year115Data?.plans?.[planKey]?.last_year_pass_data?.min_score || null;
+          } else {
+            lastYearMinScore = plan.last_year_pass_data?.min_score || null;
+          }
+
+          // 估計機率
+          const { probability, confidenceLevel } = estimateProbability(
+            weightedScore,
+            lastYearMinScore
+          );
+
+          return {
+            ...dept,
+            placement_analysis: {
+              threshold_check: {
+                all_pass: thresholdResult.allPass,
+                failed_subjects: thresholdResult.failedSubjects,
+                details: thresholdResult.details,
+              },
+              score_calculation: {
+                weighted_score: weightedScore,
+                max_possible_score: maxPossibleScore,
+                score_percentage: maxPossibleScore > 0 ? (weightedScore / maxPossibleScore) * 100 : 0,
+              },
+              historical_comparison: {
+                last_year_min_score: lastYearMinScore,
+                user_vs_min: lastYearMinScore ? weightedScore - lastYearMinScore : null,
+                probability_estimate: probability,
+              },
+              confidence_level: confidenceLevel,
+            }
+          };
+        });
+
+        // 根據 includeFailedThreshold 參數決定是否過濾未通過門檻的科系
+        let filteredDepts = enhancedDepartments;
+        if (!includeFailedThreshold) {
+          // 保留：1) 沒有 placement_analysis 的科系 2) 通過門檻的科系
+          filteredDepts = enhancedDepartments.filter((d: any) => 
+            !d.placement_analysis || d.placement_analysis.threshold_check.all_pass
+          );
+        }
+
+        // 統計未通過門檻的科系數量
+        const failedCount = enhancedDepartments.filter((d: any) => 
+          d.placement_analysis && !d.placement_analysis.threshold_check.all_pass
+        ).length;
+
+        return {
+          ...school,
+          departments: filteredDepts,
+          placement_summary: {
+            total_departments: enhancedDepartments.length,
+            passed_threshold: enhancedDepartments.length - failedCount,
+            failed_threshold: failedCount,
+          }
+        };
+      });
+
+      // 過濾掉沒有任何科系的學校 (可能因為全部未通過門檻)
+      if (!includeFailedThreshold) {
+        schools = schools.filter((s: any) => s.departments.length > 0);
+      }
+    }
+
     const metadata = await getSchoolMetadata();
 
     return NextResponse.json({
@@ -580,6 +900,15 @@ export async function GET(request: Request) {
         totalPages: Math.ceil(total / limit),
         hasMore: page * limit < total,
       },
+      // 如果有落點分析，返回額外資訊
+      ...(shouldCalculatePlacement ? {
+        placement_enabled: true,
+        user_scores: {
+          gsat: userGsatScores,
+          bifurcated: userBifurcatedScores,
+          levels: userLevels,
+        }
+      } : {}),
     });
   } catch (error: any) {
     console.error("API Error:", error);

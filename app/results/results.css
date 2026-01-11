@@ -139,6 +139,31 @@
   margin-left: 4px;
 }
 
+/* Threshold Toggle */
+.threshold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line, #E6EEF6);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.threshold-toggle input {
+  cursor: pointer;
+}
+
+.threshold-toggle.on {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.threshold-toggle.off {
+  background: #f8fafc;
+  color: #334155;
+}
+
 /* Filter Overlay */
 .filter-overlay {
   position: fixed;

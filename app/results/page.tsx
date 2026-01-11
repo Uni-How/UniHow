@@ -36,6 +36,12 @@ interface ISchool {
     campus_ids: string[];
     admission_data?: any;
   }[];
+  placement_summary?: {
+    total_departments: number;
+    passed_threshold: number;
+    failed_threshold: number;
+  };
+  placement_analysis?: any;
 }
 
 // --- Results Page Component (搜尋結果主頁) ---
@@ -58,6 +64,9 @@ function ResultsContent() {
   // 從 URL 讀取年份，確保與搜尋條件一致
   const [selectedYear, setSelectedYear] = useState<'114' | '115'>((searchParams.get('year') || '114') as '114' | '115');
   const [selectedDeptIndex, setSelectedDeptIndex] = useState<number>(0);
+  
+  // 新增：顯示未通過門檻的科系
+  const [showFailedThreshold, setShowFailedThreshold] = useState(false);
   
   // 同步 URL 年份變化
   useEffect(() => {
@@ -88,12 +97,20 @@ function ResultsContent() {
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   
+  // 從 URL 初始化地區篩選
+  useEffect(() => {
+    const regionFromUrl = searchParams.get('region');
+    if (regionFromUrl && !selectedRegions.includes(regionFromUrl)) {
+      setSelectedRegions([regionFromUrl]);
+    }
+  }, [searchParams]);
+  
   // Observer Ref (用於偵測是否捲動到底部)
   const observerTarget = useRef(null);
 
   // 2. Fetch Function (資料獲取函式)
   // 核心邏輯：支援「追加 (Append)」與「刷新 (Refresh)」兩種模式
-  const fetchSchools = useCallback(async (pageNum: number, isRefresh: boolean = false) => {
+  const fetchSchools = useCallback(async (pageNum: number, isRefresh: boolean = false, includeFailedParam?: boolean) => {
       if (isFetching) return; // 防重入鎖
       setIsFetching(true);
 
@@ -101,6 +118,12 @@ function ResultsContent() {
         const params = new URLSearchParams(searchParams.toString());
         params.set('limit', '12'); // 每次載入 12 筆
         params.set('page', pageNum.toString());
+        
+        // 加入未通過門檻參數
+        const includeFailed = includeFailedParam ?? showFailedThreshold;
+        if (includeFailed) {
+          params.set('includeFailedThreshold', 'true');
+        }
 
         const res = await fetch(`/api/schools?${params.toString()}`);
         if (!res.ok) throw new Error('Failed to fetch');
@@ -441,6 +464,12 @@ function ResultsContent() {
               selectedDeptIndex={selectedDeptIndex}
               onSelectDept={setSelectedDeptIndex}
               onYearChange={setSelectedYear}
+              showFailedThreshold={showFailedThreshold}
+              onToggleShowFailed={(show) => {
+                setShowFailedThreshold(show);
+                // 刷新目前頁面資料以包含/排除未通過門檻的科系
+                fetchSchools(1, true, show);
+              }}
             />
           )}
         </div>
