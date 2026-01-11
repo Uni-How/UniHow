@@ -3,6 +3,32 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+interface PlacementAnalysis {
+  threshold_check: {
+    all_pass: boolean;
+    failed_subjects: string[];
+    details: {
+      subject: string;
+      threshold: string;
+      userLevel: number;
+      requiredLevel: number;
+      pass: boolean;
+      group?: number;
+    }[];
+  };
+  score_calculation: {
+    weighted_score: number;
+    max_possible_score: number;
+    score_percentage: number;
+  };
+  historical_comparison: {
+    last_year_min_score: number | null;
+    user_vs_min: number | null;
+    probability_estimate: number;
+  };
+  confidence_level: 'high' | 'medium' | 'low' | 'very_low';
+}
+
 interface ISchool {
   _id: string;
   school_id: string;
@@ -28,6 +54,7 @@ interface ISchool {
     academic_group: string;
     campus_ids: string[];
     admission_data?: any;
+    placement_analysis?: PlacementAnalysis | null;
   }[];
 }
 
@@ -36,6 +63,34 @@ interface SchoolDetailProps {
   selectedYear: '114' | '115';
   selectedDeptIndex: number;
 }
+
+// 學測 15 級分轉 60 級分對照表（用於分發加權計分）
+const GSAT_CONVERSION: { [key: string]: number } = {
+  '15': 60, '14': 56, '13': 52, '12': 48, '11': 44, '10': 40,
+  '9': 36, '8': 32, '7': 28, '6': 24, '5': 20, '4': 16,
+  '3': 12, '2': 8, '1': 4, '0': 0
+};
+
+// 科目名稱對應 URL 參數
+const SUBJECT_MAP: { [key: string]: { param: string; type: 'gsat' | 'bifurcated' } } = {
+  '國文': { param: 'chinese', type: 'gsat' },
+  '英文': { param: 'english', type: 'gsat' },
+  '數學A': { param: 'mathA', type: 'gsat' },
+  '數學B': { param: 'mathB', type: 'gsat' },
+  '自然': { param: 'science', type: 'gsat' },
+  '社會': { param: 'social', type: 'gsat' },
+  '數學甲': { param: 'bifurcatedMathIA', type: 'bifurcated' },
+  '數甲': { param: 'bifurcatedMathIA', type: 'bifurcated' },
+  '數學乙': { param: 'bifurcatedMathIB', type: 'bifurcated' },
+  '數乙': { param: 'bifurcatedMathIB', type: 'bifurcated' },
+  '物理': { param: 'bifurcatedPhysics', type: 'bifurcated' },
+  '化學': { param: 'bifurcatedChemistry', type: 'bifurcated' },
+  '生物': { param: 'bifurcatedBiology', type: 'bifurcated' },
+  '歷史': { param: 'bifurcatedHistory', type: 'bifurcated' },
+  '地理': { param: 'bifurcatedGeography', type: 'bifurcated' },
+  '公民': { param: 'bifurcatedCivics', type: 'bifurcated' },
+  '公民與社會': { param: 'bifurcatedCivics', type: 'bifurcated' },
+};
 
 export default function SchoolDetail({ school, selectedYear, selectedDeptIndex }: SchoolDetailProps) {
   const searchParams = useSearchParams();
@@ -49,6 +104,77 @@ export default function SchoolDetail({ school, selectedYear, selectedDeptIndex }
   }, [school, selectedDeptIndex, selectedYear, method]);
 
   const selectedDept = school?.departments[selectedDeptIndex];
+
+  // 計算用戶的加權分數
+  const userWeightedScore = useMemo(() => {
+    if (!planData?.scoring_weights || planData.scoring_weights.length === 0) {
+      return null;
+    }
+
+    let totalScore = 0;
+    let allScoresAvailable = true;
+    const scoreDetails: { subject: string; rawScore: number; convertedScore: number; multiplier: number; weightedScore: number }[] = [];
+
+    for (const weight of planData.scoring_weights) {
+      const subjectInfo = SUBJECT_MAP[weight.subject];
+      if (!subjectInfo) {
+        // 找不到對應科目，跳過
+        continue;
+      }
+
+      const rawScoreStr = searchParams.get(subjectInfo.param);
+      if (!rawScoreStr) {
+        allScoresAvailable = false;
+        continue;
+      }
+
+      const rawScore = parseInt(rawScoreStr);
+      if (isNaN(rawScore)) {
+        allScoresAvailable = false;
+        continue;
+      }
+
+      // 學測成績需要轉換，分科測驗直接使用
+      let convertedScore: number;
+      if (subjectInfo.type === 'gsat') {
+        convertedScore = GSAT_CONVERSION[rawScoreStr] ?? 0;
+      } else {
+        convertedScore = rawScore; // 分科測驗已經是 60 級分
+      }
+
+      const multiplier = weight.multiplier || 1;
+      const weightedScore = convertedScore * multiplier;
+      totalScore += weightedScore;
+
+      scoreDetails.push({
+        subject: weight.subject,
+        rawScore,
+        convertedScore,
+        multiplier,
+        weightedScore
+      });
+    }
+
+    // 至少要有一科有成績才顯示
+    if (scoreDetails.length === 0) {
+      return null;
+    }
+
+    return {
+      totalScore,
+      allScoresAvailable,
+      scoreDetails,
+      missingCount: planData.scoring_weights.length - scoreDetails.length
+    };
+  }, [planData, searchParams]);
+
+  // 計算與去年最低分的差距
+  const scoreDiff = useMemo(() => {
+    if (!userWeightedScore || !planData?.last_year_pass_data?.min_score) {
+      return null;
+    }
+    return userWeightedScore.totalScore - planData.last_year_pass_data.min_score;
+  }, [userWeightedScore, planData]);
 
   if (!school) {
     return (
@@ -222,7 +348,148 @@ export default function SchoolDetail({ school, selectedYear, selectedDeptIndex }
           </div>
         ) : null}
 
-        {/* 🔒 檢定標準（門檻）- 必須先通過才能進入採計 */}
+        {/* � 我的加權分數 (分發入學專用) */}
+        {method === 'distribution_admission' && userWeightedScore && (
+          <div className="selection-order" style={{ marginTop: '1rem' }}>
+            <div className="so-table">
+              <div className="so-head" style={{ 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white'
+              }}>
+                📊 我的加權分數
+                {!userWeightedScore.allScoresAvailable && (
+                  <span style={{ 
+                    marginLeft: '0.5rem', 
+                    fontSize: '0.7rem', 
+                    color: '#fff',
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    padding: '0.2rem 0.4rem',
+                    borderRadius: '3px',
+                    fontWeight: 400
+                  }}>
+                    部分科目未填寫
+                  </span>
+                )}
+              </div>
+              <div className="so-body">
+                <div className="so-row" style={{ display: 'block', padding: '0.75rem' }}>
+                  {/* 加權總分 */}
+                  <div style={{ 
+                    marginBottom: '0.75rem', 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '0.75rem',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '8px'
+                  }}>
+                    <span style={{ color: '#333', fontSize: '0.9rem', fontWeight: 500 }}>我的加權總分：</span>
+                    <span style={{ 
+                      fontWeight: 700, 
+                      color: '#667eea', 
+                      fontSize: '1.3rem'
+                    }}>
+                      {userWeightedScore.totalScore.toFixed(1)} 分
+                    </span>
+                  </div>
+
+                  {/* 與去年最低分差距 */}
+                  {scoreDiff !== null && (
+                    <div style={{ 
+                      marginBottom: '0.75rem', 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      padding: '0.75rem',
+                      backgroundColor: scoreDiff >= 0 ? '#e8f5e9' : '#ffebee',
+                      borderRadius: '8px',
+                      border: `1px solid ${scoreDiff >= 0 ? '#a5d6a7' : '#ef9a9a'}`
+                    }}>
+                      <span style={{ color: '#333', fontSize: '0.85rem' }}>與去年最低分差距：</span>
+                      <span style={{ 
+                        fontWeight: 700, 
+                        color: scoreDiff >= 0 ? '#2e7d32' : '#c62828', 
+                        fontSize: '1.1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem'
+                      }}>
+                        {scoreDiff >= 0 ? '▲' : '▼'} {scoreDiff >= 0 ? '+' : ''}{scoreDiff.toFixed(1)} 分
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          fontWeight: 500,
+                          color: scoreDiff >= 0 ? '#388e3c' : '#d32f2f'
+                        }}>
+                          {scoreDiff >= 0 ? '(有望錄取)' : '(落點風險)'}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 各科目明細 */}
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ 
+                      color: '#666', 
+                      fontSize: '0.8rem', 
+                      marginBottom: '0.5rem',
+                      fontWeight: 500 
+                    }}>
+                      各科計算明細：
+                    </div>
+                    <div style={{ 
+                      display: 'grid', 
+                      gap: '0.4rem',
+                      fontSize: '0.8rem'
+                    }}>
+                      {userWeightedScore.scoreDetails.map((detail, idx) => (
+                        <div 
+                          key={idx}
+                          style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '0.4rem 0.6rem',
+                            backgroundColor: '#fafafa',
+                            borderRadius: '4px'
+                          }}
+                        >
+                          <span style={{ color: '#555' }}>{detail.subject}</span>
+                          <span style={{ 
+                            fontFamily: 'monospace',
+                            color: '#333',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                          }}>
+                            <span style={{ color: '#888' }}>
+                              {detail.rawScore}{detail.convertedScore !== detail.rawScore ? `→${detail.convertedScore}` : ''}
+                            </span>
+                            <span style={{ color: '#999' }}>×</span>
+                            <span style={{ color: '#667eea' }}>{detail.multiplier}</span>
+                            <span style={{ color: '#999' }}>=</span>
+                            <span style={{ fontWeight: 600, color: '#333' }}>{detail.weightedScore.toFixed(1)}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {userWeightedScore.missingCount > 0 && (
+                      <div style={{ 
+                        marginTop: '0.5rem',
+                        fontSize: '0.75rem',
+                        color: '#f57c00',
+                        fontStyle: 'italic'
+                      }}>
+                        ※ 尚有 {userWeightedScore.missingCount} 科未填寫，請在上方搜尋欄補充成績以獲得完整分數
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* �🔒 檢定標準（門檻）- 必須先通過才能進入採計 */}
         {planData?.exam_thresholds && planData.exam_thresholds.length > 0 && (
           <div style={{ marginTop: '1rem' }}>
             <div style={{ 
@@ -305,6 +572,47 @@ export default function SchoolDetail({ school, selectedYear, selectedDeptIndex }
                 );
               })()}
             </div>
+
+            {/* 🚫 未通過門檻警告 */}
+            {selectedDept?.placement_analysis && !selectedDept.placement_analysis.threshold_check.all_pass && (
+              <div style={{
+                marginTop: '0.75rem',
+                padding: '0.75rem',
+                backgroundColor: '#ffebee',
+                borderRadius: '8px',
+                border: '1px solid #ffcdd2'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  color: '#c62828',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  marginBottom: '0.5rem'
+                }}>
+                  <span>🚫</span>
+                  <span>未通過門檻</span>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#b71c1c' }}>
+                  {selectedDept.placement_analysis.threshold_check.details
+                    .filter(d => !d.pass)
+                    .map((detail, idx) => (
+                      <div key={idx} style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between',
+                        padding: '0.25rem 0',
+                        borderBottom: idx < selectedDept.placement_analysis!.threshold_check.details.filter(d => !d.pass).length - 1 ? '1px dashed #ffcdd2' : 'none'
+                      }}>
+                        <span>{detail.subject}</span>
+                        <span>
+                          你的成績: {detail.userLevel} 級分 / 需達: {detail.threshold}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

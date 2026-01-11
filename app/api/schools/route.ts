@@ -304,7 +304,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     // 1. Basic Params (基本篩選參數)
-    const region = searchParams.get("region");
+    const regionParam = searchParams.get("region");
+    const regions = regionParam ? regionParam.split(',').map(r => r.trim()).filter(r => r) : [];
     const school_id = searchParams.get("school_id");
     const type = searchParams.get("type"); // 公立/私立
     // 分頁參數
@@ -317,7 +318,8 @@ export async function GET(request: Request) {
     // 2. Advanced Params (進階篩選)
     const year = searchParams.get("year") || "114"; // 預設 114學年度
     const method = searchParams.get("method") || "personal_application"; // 入學管道 預設個人申請
-    const group = searchParams.get("group"); // 學群
+    const groupParam = searchParams.get("group"); // 學群
+    const groups = groupParam ? groupParam.split(',').map(g => g.trim()).filter(g => g) : [];
     const listening = searchParams.get("listening"); // 英聽要求
 
     const scoreKeys = [
@@ -330,7 +332,7 @@ export async function GET(request: Request) {
     ];
     const hasScores = scoreKeys.some((s) => searchParams.has(s)); // 檢查是否有輸入任何成績
     // 當有進階參數時，啟用 Aggregation Mode，否則使用 Simple Query
-    const hasAdvancedFilters = method || group || listening || hasScores;
+    const hasAdvancedFilters = method || groups.length > 0 || listening || hasScores;
 
     // 3. User Scores Parsing (解析使用者成績)
     // 將 URL 中的分數參數轉換為 Level (0-5)
@@ -392,8 +394,8 @@ export async function GET(request: Request) {
       "departments.academic_group": 1,
       "departments.campus_ids": 1,
       "departments._id": 1,
-      // 當 detail=true 時才加入詳細的 admission_data
-      ...(detail ? { "departments.admission_data": 1 } : {}),
+      // 當 detail=true 或需要計算落點分析時，才加入詳細的 admission_data
+      ...(detail || shouldCalculatePlacement ? { "departments.admission_data": 1 } : {}),
     };
 
     let schools;
@@ -405,10 +407,16 @@ export async function GET(request: Request) {
       const query: any = {};
       if (school_id) query.school_id = school_id;
       if (type) query.school_type = type;
-      if (region) {
+      if (regions.length > 0) {
+        // 將地區名稱轉換為實際城市名稱
+        const cityList: string[] = [];
+        regions.forEach(region => {
+          const cities = REGION_MAPPING[region] || [region];
+          cityList.push(...cities);
+        });
         // 使用 $elemMatch 查詢 nested array (campuses.location.city)
         query.campuses = {
-          $elemMatch: { is_main: true, "location.city": region },
+          $elemMatch: { is_main: true, "location.city": { $in: cityList } },
         };
       }
       total = await School.countDocuments(query);
@@ -430,9 +438,15 @@ export async function GET(request: Request) {
       const matchStage: any = {};
       if (school_id) matchStage.school_id = school_id;
       if (type) matchStage.school_type = type;
-      if (region) {
+      if (regions.length > 0) {
+        // 將地區名稱轉換為實際城市名稱
+        const cityList: string[] = [];
+        regions.forEach(region => {
+          const cities = REGION_MAPPING[region] || [region];
+          cityList.push(...cities);
+        });
         matchStage.campuses = {
-          $elemMatch: { is_main: true, "location.city": region },
+          $elemMatch: { is_main: true, "location.city": { $in: cityList } },
         };
       }
       pipeline.push({ $match: matchStage });
@@ -453,14 +467,14 @@ export async function GET(request: Request) {
 
       // [Stage 3] Pre-Filter Departments (預先篩選科系 - 優化關鍵)
       // 如果使用者有指定學群，在 Unwind 之前就先把不符合的科系濾掉
-      if (group) {
+      if (groups.length > 0) {
         pipeline.push({
           $addFields: {
             departments: {
               $filter: {
                 input: "$departments",
                 as: "dept",
-                cond: { $eq: ["$$dept.academic_group", group] },
+                cond: { $in: ["$$dept.academic_group", groups] },
               },
             },
           },
@@ -555,8 +569,8 @@ export async function GET(request: Request) {
       };
 
       // 學群篩選 (如果在 Stage 3 沒做，這裡會再次確認，或者作為雙重保險)
-      if (group) {
-        advancedMatch["departments.academic_group"] = group;
+      if (groups.length > 0) {
+        advancedMatch["departments.academic_group"] = { $in: groups };
       }
 
       // Listening Filter (英聽篩選)
@@ -733,17 +747,21 @@ export async function GET(request: Request) {
           ],
         };
 
-        advancedMatch["__target_plan.exam_thresholds"] = {
-          $exists: true,
-          $ne: [],
-        };
-
-        if (advancedMatch["$expr"]) {
-          advancedMatch["$expr"] = {
-            $and: [advancedMatch["$expr"], thresholdCheckExpr],
+        // 只有在不顯示未通過門檻科系時，才在 aggregation 階段過濾
+        // 如果 includeFailedThreshold=true，則保留所有科系，之後在 JS 層處理
+        if (!includeFailedThreshold) {
+          advancedMatch["__target_plan.exam_thresholds"] = {
+            $exists: true,
+            $ne: [],
           };
-        } else {
-          advancedMatch["$expr"] = thresholdCheckExpr;
+
+          if (advancedMatch["$expr"]) {
+            advancedMatch["$expr"] = {
+              $and: [advancedMatch["$expr"], thresholdCheckExpr],
+            };
+          } else {
+            advancedMatch["$expr"] = thresholdCheckExpr;
+          }
         }
       }
 

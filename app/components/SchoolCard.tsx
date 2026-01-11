@@ -87,9 +87,6 @@ function SchoolCard({ school, isSelected, onClick }: SchoolCardProps) {
             </span>
           ))}
         </div>
-        <a className="more" href="#" onClick={(e) => e.preventDefault()}>
-          查看詳情 <span className="arr">›</span>
-        </a>
       </div>
     </article>
   );

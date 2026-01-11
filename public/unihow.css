@@ -104,7 +104,7 @@ body{
 .thumb img{width:220px;height:150px;object-fit:cover;object-position:center top;border-radius:12px}
 .card-body{flex:1;min-width:220px;position:relative}
 .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.card-top h3{margin:0;font-size:20px;font-weight:700;color:var(--text);line-height:1.15;white-space:normal;overflow-wrap:break-word;word-break:keep-all;writing-mode:horizontal-tb}
+.card-top h3{margin:0;font-family:Inter,"Noto Sans TC",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft JhengHei",Arial,sans-serif;font-size:20px;font-weight:700;color:var(--text);line-height:1.15;white-space:normal;overflow-wrap:break-word;word-break:keep-all;writing-mode:horizontal-tb}
 .kv.small{color:var(--accent-navy);font-size:13px;font-weight:600;margin-top:2px}
 .sub{color:var(--muted);margin-top:6px}
 .tags{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
@@ -114,8 +114,6 @@ body{
 .tag.mint{background:#EAF9F5}
 .tag.pink{background:var(--tag-pink)}
 .tag.orange{background:#FFF4EA}
-.more{display:inline-flex;align-items:center;gap:6px;color:var(--action-blue);text-decoration:none;font-weight:700;position:absolute;right:16px;bottom:16px}
-.arr{font-size:22px;line-height:1}
 
 .ad-block{height:220px;background:#cfcfcf;border-radius:18px;color:#111;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:72px;border:1px solid var(--line);box-shadow:var(--shadow)}
 

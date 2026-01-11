@@ -2,74 +2,56 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-// --- HeroSearch Component (首頁搜尋組件) ---
-// 這是使用者與系統互動的第一個入口，負責收集所有篩選條件。
+// --- ResultsSearchBar Component (結果頁搜尋組件) ---
+// 複製自 HeroSearch，用於結果頁面的搜尋欄
+// 保持獨立以便後期可針對結果頁做特定調整
 
-export default function HeroSearch() {
+export default function ResultsSearchBar() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // 從 URL 初始化狀態
+  const initYear = searchParams.get('year') || '115';
+  const initMethod = searchParams.get('method') || 'distribution_admission';
+  const initListening = searchParams.get('listening') || '';
+  const initType = searchParams.get('type') || '';
+  const initGroups = searchParams.get('group')?.split(',').filter(Boolean) || [];
+  const initRegions = searchParams.get('region')?.split(',').filter(Boolean) || [];
   
   // States (表單狀態)
-  const [academicYear, setAcademicYear] = useState('115'); // Default 115學年度
-  const [admissionMethod, setAdmissionMethod] = useState('distribution_admission'); // 暫時僅開放分發
+  const [academicYear, setAcademicYear] = useState(initYear);
+  const [admissionMethod, setAdmissionMethod] = useState(initMethod);
   const [isMethodOpen, setIsMethodOpen] = useState(false);
   const [isListeningOpen, setIsListeningOpen] = useState(false);
-  const [isTypeOpen, setIsTypeOpen] = useState(false);
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [expandedScoreType, setExpandedScoreType] = useState<'gsat' | 'bifurcated' | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
-  const [multiSelectOpen, setMultiSelectOpen] = useState<'group' | 'region' | null>(null);
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   
-  // 成績輸入狀態 (對應各科目)
-  // 這裡使用 string 是為了方便處理空值輸入
+  // 成績輸入狀態
   const [scores, setScores] = useState({
-    chinese: '',
-    english: '',
-    mathA: '',
-    mathB: '',
-    science: '',
-    social: ''
+    chinese: searchParams.get('chinese') || '',
+    english: searchParams.get('english') || '',
+    mathA: searchParams.get('mathA') || '',
+    mathB: searchParams.get('mathB') || '',
+    science: searchParams.get('science') || '',
+    social: searchParams.get('social') || ''
   });
-  const [listening, setListening] = useState(''); // 初始為空（無=不篩選）
-  const [publicPrivate, setPublicPrivate] = useState(''); // 公私立
+  const [listening, setListening] = useState(initListening);
   
-  // 分科測驗成績 (滿分為 60 級分)
+  // 分科測驗成績
   const [bifurcatedScores, setBifurcatedScores] = useState({
-    mathIA: '',      // 數學甲
-    mathIB: '',      // 數學乙
-    physics: '',     // 物理
-    chemistry: '',   // 化學
-    biology: '',     // 生物
-    history: '',     // 歷史
-    geography: '',   // 地理
-    civics: ''       // 公民與社會
+    mathIA: searchParams.get('bifurcatedMathIA') || '',
+    mathIB: searchParams.get('bifurcatedMathIB') || '',
+    physics: searchParams.get('bifurcatedPhysics') || '',
+    chemistry: searchParams.get('bifurcatedChemistry') || '',
+    biology: searchParams.get('bifurcatedBiology') || '',
+    history: searchParams.get('bifurcatedHistory') || '',
+    geography: searchParams.get('bifurcatedGeography') || '',
+    civics: searchParams.get('bifurcatedCivics') || ''
   });
-  
-  // 新增：從 API 載入的學群選項 (Dynamic Metadata)
-  // 透過 API 獲取資料庫中實際存在的學群列表，避免寫死
-  const [availableGroups, setAvailableGroups] = useState<string[]>([]);
 
-  // 載入學群選項
-  useEffect(() => {
-    async function loadMetadata() {
-      try {
-        const res = await fetch('/api/schools?limit=1'); // 請求少量資料以取得 metadata
-        const data = await res.json();
-        if (data.metadata?.academic_groups) {
-          setAvailableGroups(data.metadata.academic_groups);
-        }
-      } catch (error) {
-        console.error('Failed to load metadata:', error);
-      }
-    }
-    loadMetadata();
-  }, []);
-
-  // Logic: Handle year changes
   const handleYearChange = (year: string) => {
     setAcademicYear(year);
   };
@@ -95,64 +77,34 @@ export default function HeroSearch() {
 
   const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scoreInputRef = useRef<HTMLInputElement | null>(null);
+  
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       
-      // 檢查是否點擊在 multi-select modal 內部
-      const isInsideMultiModal = (target as HTMLElement).closest('.multi-modal-wrapper') !== null;
       const isInsideScoreModal = (target as HTMLElement).closest('.score-modal-wrapper') !== null;
       const isBackdrop = (target as HTMLElement).classList.contains('modal-backdrop');
       
-      // 如果點擊在 modal 內部，不關閉任何東西
-      if (isInsideMultiModal || isInsideScoreModal) {
+      if (isInsideScoreModal) {
         return;
       }
       
-      // 如果點擊 backdrop，只關閉對應的 modal，不關閉其他下拉選單
       if (isBackdrop) {
-        return; // backdrop 的 onClick 會處理關閉
+        return;
       }
       
       const isInside = Object.values(dropdownRefs.current).some((ref) => ref && ref.contains(target));
       if (!isInside) {
         setIsMethodOpen(false);
         setIsListeningOpen(false);
-        setIsTypeOpen(false);
-        // multiSelectOpen 不要在這裡關閉，讓 backdrop 的 onClick 處理
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 15 to 1 (級分下拉選單生成用)
   const LEVELS = Array.from({ length: 15 }, (_, i) => 15 - i);
-
-  // 60 to 1 (分科測驗級分 1-60)
   const BIFURCATED_LEVELS = Array.from({ length: 60 }, (_, i) => 60 - i);
-
-  const REGION_OPTIONS = [
-    '北北基',
-    '桃竹苗',
-    '中彰投',
-    '雲嘉南',
-    '高屏',
-    '宜花東',
-    '離島'
-  ];
-
-  const toggleGroupSelection = (value: string) => {
-    setSelectedGroups((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
-    );
-  };
-
-  const toggleRegionSelection = (value: string) => {
-    setSelectedRegions((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
-    );
-  };
 
   const handleScoreChange = (subject: string, value: string) => {
     setScores(prev => ({ ...prev, [subject]: value }));
@@ -162,14 +114,12 @@ export default function HeroSearch() {
     setBifurcatedScores(prev => ({ ...prev, [subject]: value }));
   };
 
-  // Handle Search (執行搜尋)
-  // 將所有狀態組合成 URL Query Params 並跳轉至 /results 頁面
+  // Handle Search - 保留從 URL 帶入的進階篩選參數
   const handleSearch = () => {
     const params = new URLSearchParams();
     
     params.set('year', academicYear);
     params.set('method', admissionMethod);
-    // 僅加入有填寫的成績
     if (scores.chinese) params.set('chinese', scores.chinese);
     if (scores.english) params.set('english', scores.english);
     if (scores.mathA) params.set('mathA', scores.mathA);
@@ -178,11 +128,12 @@ export default function HeroSearch() {
     if (scores.social) params.set('social', scores.social);
     
     if (listening) params.set('listening', listening);
-    if (selectedGroups.length) params.set('group', selectedGroups.join(','));
-    if (publicPrivate) params.set('type', publicPrivate);
-    if (selectedRegions.length) params.set('region', selectedRegions.join(','));
+    
+    // 保留從 URL 讀取的進階篩選參數（由「進階篩選」面板控制）
+    if (initGroups.length) params.set('group', initGroups.join(','));
+    if (initType) params.set('type', initType);
+    if (initRegions.length) params.set('region', initRegions.join(','));
 
-    // 添加分科測驗成績到 URL
     if (bifurcatedScores.mathIA) params.set('bifurcatedMathIA', bifurcatedScores.mathIA);
     if (bifurcatedScores.mathIB) params.set('bifurcatedMathIB', bifurcatedScores.mathIB);
     if (bifurcatedScores.physics) params.set('bifurcatedPhysics', bifurcatedScores.physics);
@@ -196,20 +147,9 @@ export default function HeroSearch() {
   };
 
   return (
-    <div className="hero-search-container">
-      {/* Tab Navigation */}
-      <div className="hero-tabs">
-        <button className="hero-tab-search">以成績搜尋</button>
-        <button 
-          className="hero-tab-pill"
-          onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-        >
-          {isAdvancedOpen ? '隱藏進階搜尋 ▲' : '進階搜尋 ▼'}
-        </button>
-      </div>
-
+    <div className="results-search-container">
       {/* Main Filter Bar */}
-      <div className={`filter-bar ${isAdvancedOpen ? 'has-below' : ''}`}>
+      <div className="filter-bar">
         {/* Academic Year */}
         <div className="filter-group year">
           <label>學年度</label>
@@ -242,11 +182,11 @@ export default function HeroSearch() {
               onClick={() => {
                 setIsMethodOpen((prev) => !prev);
                 setIsListeningOpen(false);
-                setMultiSelectOpen(null);
-                setIsTypeOpen(false);
               }}
             >
-              {admissionMethod === 'distribution_admission' ? '分發入學' : '請選擇'}
+              {admissionMethod === 'distribution_admission' ? '分發入學' : 
+               admissionMethod === 'personal_application' ? '個人申請' : 
+               admissionMethod === 'star_plan' ? '繁星推薦' : '請選擇'}
               <span className="dropdown-caret">▾</span>
             </button>
             {isMethodOpen && (
@@ -290,7 +230,7 @@ export default function HeroSearch() {
           </div>
         </div>
 
-        {/* Scores Display (簡潔顯示) */}
+        {/* Scores Display */}
         <div className="filter-group scores-display">
           <label>成績</label>
           <div className="scores-text-container">
@@ -328,11 +268,9 @@ export default function HeroSearch() {
               onClick={() => {
                 setIsListeningOpen((prev) => !prev);
                 setIsMethodOpen(false);
-                setMultiSelectOpen(null);
-                setIsTypeOpen(false);
               }}
             >
-              {listening || '無（不篩選）'}
+              {listening || '無'}
               <span className="dropdown-caret">▾</span>
             </button>
             {isListeningOpen && (
@@ -363,170 +301,9 @@ export default function HeroSearch() {
         </button>
       </div>
 
-      {/* Advanced Search Bar Layer */}
-      {isAdvancedOpen && (
-      <div className="filter-bar-advanced">
-        {/* Academic Group - 進階搜尋 */}
-        <div
-          className="filter-group group-pref"
-          ref={(node) => { dropdownRefs.current.group = node; }}
-        >
-          <label>學群偏好</label>
-          <div className="custom-dropdown">
-            <button
-              type="button"
-              className="dropdown-toggle"
-              onClick={() => {
-                setMultiSelectOpen('group');
-                setIsMethodOpen(false);
-                setIsListeningOpen(false);
-                setIsTypeOpen(false);
-              }}
-            >
-              {selectedGroups.length ? selectedGroups.join('、') : '全部'}
-              <span className="dropdown-caret">▾</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Public/Private - 進階搜尋 */}
-        <div
-          className="filter-group type"
-          ref={(node) => { dropdownRefs.current.type = node; }}
-        >
-          <label>公/私立</label>
-          <div className="custom-dropdown">
-            <button
-              type="button"
-              className="dropdown-toggle"
-              onClick={() => {
-                setIsTypeOpen((prev) => !prev);
-                setIsMethodOpen(false);
-                setIsListeningOpen(false);
-                setMultiSelectOpen(null);
-              }}
-            >
-              {publicPrivate || '全部'}
-              <span className="dropdown-caret">▾</span>
-            </button>
-            {isTypeOpen && (
-              <div className="dropdown-menu">
-                {[{ value: '', label: '全部' }, { value: '公立', label: '公立' }, { value: '私立', label: '私立' }].map((option) => (
-                  <button
-                    key={option.value || 'all'}
-                    type="button"
-                    className="dropdown-item"
-                    onClick={() => {
-                      setPublicPrivate(option.value);
-                      setIsTypeOpen(false);
-                    }}
-                  >
-                    <div className="item-row"><span>{option.label}</span></div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Region - 進階搜尋 */}
-        <div
-          className="filter-group region"
-          ref={(node) => { dropdownRefs.current.region = node; }}
-        >
-          <label>地區</label>
-          <div className="custom-dropdown">
-            <button
-              type="button"
-              className="dropdown-toggle"
-              onClick={() => {
-                setMultiSelectOpen('region');
-                setIsMethodOpen(false);
-                setIsListeningOpen(false);
-                setIsTypeOpen(false);
-              }}
-            >
-              {selectedRegions.length ? selectedRegions.join('、') : '全部'}
-              <span className="dropdown-caret">▾</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      )}
-
-      {multiSelectOpen && typeof document !== 'undefined' && createPortal(
-        <>
-          <div
-            className="modal-backdrop"
-            onClick={() => setMultiSelectOpen(null)}
-          />
-
-          <div className="multi-modal-wrapper">
-            <div className="multi-modal">
-              <div className="modal-header">
-                <h3>{multiSelectOpen === 'group' ? '學群偏好' : '地區'}</h3>
-                <button
-                  className="modal-confirm-inline"
-                  onClick={() => setMultiSelectOpen(null)}
-                >
-                  確認
-                </button>
-              </div>
-
-              <div className="multi-body">
-                <div className="chip-row">
-                  <button
-                    className="chip-button"
-                    onClick={() => {
-                      if (multiSelectOpen === 'group') {
-                        setSelectedGroups([]);
-                      } else {
-                        setSelectedRegions([]);
-                      }
-                    }}
-                  >
-                    清空
-                  </button>
-                  <div className="selected-text">
-                    已選：{multiSelectOpen === 'group'
-                      ? (selectedGroups.length ? selectedGroups.join('、') : '未選')
-                      : (selectedRegions.length ? selectedRegions.join('、') : '未選')}
-                  </div>
-                </div>
-
-                <div className="multi-grid">
-                  {(multiSelectOpen === 'group' ? availableGroups : REGION_OPTIONS).map((item) => {
-                    const isActive = multiSelectOpen === 'group'
-                      ? selectedGroups.includes(item)
-                      : selectedRegions.includes(item);
-                    return (
-                      <button
-                        key={item}
-                        className={`multi-option ${isActive ? 'active' : ''}`}
-                        onClick={() => {
-                          if (multiSelectOpen === 'group') {
-                            toggleGroupSelection(item);
-                          } else {
-                            toggleRegionSelection(item);
-                          }
-                        }}
-                      >
-                        {item}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
-
       {/* Score Input Modal */}
       {expandedScoreType && typeof document !== 'undefined' && createPortal(
         <>
-          {/* Modal Backdrop */}
           <div 
             className="modal-backdrop"
             onClick={() => {
@@ -536,7 +313,6 @@ export default function HeroSearch() {
             }}
           />
           
-          {/* Modal Content */}
           <div className="score-modal-wrapper">
             <div className="score-modal">
               <div className="modal-header">
@@ -634,7 +410,6 @@ export default function HeroSearch() {
                             }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && scores[selectedSubject as keyof typeof scores]) {
-                                // Enter键跳转到下一个未输入的科目
                                 const subjects = ['chinese', 'english', 'mathA', 'mathB', 'science', 'social'];
                                 const currentIndex = subjects.indexOf(selectedSubject);
                                 for (let i = currentIndex + 1; i < subjects.length; i++) {
@@ -669,7 +444,6 @@ export default function HeroSearch() {
                               className={`score-btn-horizontal ${scores[selectedSubject as keyof typeof scores] === String(level) ? 'active' : ''}`}
                               onClick={() => {
                                 handleScoreChange(selectedSubject, String(level));
-                                // 自动跳转到下一个未输入的科目
                                 const subjects = ['chinese', 'english', 'mathA', 'mathB', 'science', 'social'];
                                 const currentIndex = subjects.indexOf(selectedSubject);
                                 for (let i = currentIndex + 1; i < subjects.length; i++) {
@@ -678,7 +452,6 @@ export default function HeroSearch() {
                                     return;
                                   }
                                 }
-                                // 如果没有未输入的科目，从头找
                                 for (let i = 0; i < currentIndex; i++) {
                                   if (!scores[subjects[i] as keyof typeof scores]) {
                                     setTimeout(() => setSelectedSubject(subjects[i]), 50);
@@ -729,7 +502,6 @@ export default function HeroSearch() {
                             }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && bifurcatedScores[selectedSubject as keyof typeof bifurcatedScores]) {
-                                // Enter键跳转到下一个未输入的科目
                                 const subjects = ['mathIA', 'mathIB', 'physics', 'chemistry', 'biology', 'history', 'geography', 'civics'];
                                 const currentIndex = subjects.indexOf(selectedSubject);
                                 for (let i = currentIndex + 1; i < subjects.length; i++) {
@@ -764,7 +536,6 @@ export default function HeroSearch() {
                               className={`score-btn-horizontal ${bifurcatedScores[selectedSubject as keyof typeof bifurcatedScores] === String(level) ? 'active' : ''}`}
                               onClick={() => {
                                 handleBifurcatedScoreChange(selectedSubject, String(level));
-                                // 自动跳转到下一个未输入的科目
                                 const subjects = ['mathIA', 'mathIB', 'physics', 'chemistry', 'biology', 'history', 'geography', 'civics'];
                                 const currentIndex = subjects.indexOf(selectedSubject);
                                 for (let i = currentIndex + 1; i < subjects.length; i++) {
@@ -792,166 +563,76 @@ export default function HeroSearch() {
               )}
               </div>
             </div>
-
           </div>
         </>,
         document.body
       )}
 
       <style jsx>{`
-        .hero-search-container {
+        .results-search-container {
           width: 100%;
-          max-width: 1000px;
-          margin: 0 auto;
           font-family: Inter, "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", Arial, sans-serif;
           position: relative;
         }
 
-        .hero-tabs {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 12px;
-          padding: 0 4px;
-        }
-
-        .hero-tab-search {
-          background: #1e40af;
-          border: none;
-          color: white;
-          padding: 8px 16px;
-          border-radius: 20px;
-          cursor: pointer;
-          font-size: 0.9rem;
-          font-weight: 500;
-          transition: all 0.2s;
-        }
-
-        .hero-tab-search:hover {
-          background: #1e3a8a;
-        }
-
-        .hero-tab-search:active {
-          transform: scale(0.98);
-        }
-
-        .hero-tab-pill {
-          background: white;
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          border-radius: 20px;
-          padding: 6px 16px;
-          font-size: 0.9rem;
-          cursor: pointer;
-          transition: all 0.2s;
-          color: #333;
-          font-weight: 500;
-        }
-
-        .hero-tab-pill:hover {
-          background: #f0f0f0;
-        }
-
         .filter-bar {
           background: white;
-          border-radius: 20px;
-          padding: 14px 10px;
+          border-radius: 16px;
+          padding: 10px 8px;
           display: flex;
           align-items: stretch;
           gap: 0;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+          box-shadow: 0 2px 12px rgba(0,0,0,0.08);
           overflow: visible;
           border: 1px solid #e1e1e1;
           position: relative;
           transition: border-radius 0.3s ease;
         }
 
-        .filter-bar.has-below {
-          border-radius: 20px 20px 0 0;
-        }
-
-        .filter-bar-advanced {
-          background: white;
-          border-radius: 0 0 20px 20px;
-          padding: 14px 10px;
-          display: flex;
-          align-items: stretch;
-          gap: 0;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-          overflow: visible;
-          border: 1px solid #e1e1e1;
-          border-top: none;
-          position: relative;
-          z-index: 50;
-          animation: slideDown 0.3s ease-out;
-        }
-
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            max-height: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            max-height: 500px;
-            transform: translateY(0);
-          }
-        }
-
         .filter-group {
-          padding: 8px 16px;
+          padding: 6px 12px;
           display: flex;
           flex-direction: column;
           justify-content: center;
           border-right: 1px solid #eee;
-          min-width: 80px;
+          min-width: 70px;
         }
 
         .filter-group:last-of-type {
           border-right: none;
         }
 
-        .search-btn {
-          border-right: none;
-        }
-
         .filter-group label {
-          font-size: 0.75rem;
-          color: #666;
-          margin-bottom: 4px;
+          font-size: 0.65rem;
+          color: #888;
+          margin-bottom: 2px;
           font-weight: 500;
-        }
-
-        .filter-select {
-          border: none;
-          background: none;
-          font-size: 1rem;
-          font-weight: 600;
-          color: #333;
-          outline: none;
-          cursor: pointer;
-          padding: 0;
-          width: 100%;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .method {
            background: #fae8b4;
-           border-radius: 0;
-           margin: -14px 0 -14px -10px;
-           padding: 10px 20px;
+           border-radius: 12px 0 0 12px;
+           margin: -10px 0 -10px -8px;
+           padding: 8px 14px;
+        }
+
+        .filter-bar.has-below .method {
+          border-radius: 12px 0 0 0;
         }
 
         .listening {
-          min-width: 60px !important;
-          padding: 0 10px !important;
+          min-width: 50px !important;
+          padding: 6px 8px !important;
         }
 
         .listening label {
-          font-size: 0.7rem !important;
+          font-size: 0.6rem !important;
         }
 
         .listening .dropdown-toggle {
-          font-size: 0.9rem !important;
+          font-size: 0.85rem !important;
         }
 
         .custom-dropdown {
@@ -965,7 +646,7 @@ export default function HeroSearch() {
           align-items: center;
           background: transparent;
           border: none;
-          font-size: 1rem;
+          font-size: 0.9rem;
           font-weight: 600;
           color: #333;
           cursor: pointer;
@@ -973,31 +654,32 @@ export default function HeroSearch() {
         }
 
         .dropdown-caret {
-          font-size: 0.8rem;
+          font-size: 0.7rem;
           color: #666;
-          margin-left: 8px;
+          margin-left: 6px;
         }
 
         .dropdown-menu {
           position: absolute;
           top: calc(100% + 6px);
           left: 0;
-          width: 180px;
+          width: 160px;
           background: white;
           border: 1px solid #e5e5e5;
-          border-radius: 12px;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-          z-index: 80;
+          border-radius: 10px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+          z-index: 1000;
           overflow: hidden;
         }
 
         .dropdown-item {
           width: 100%;
           text-align: left;
-          padding: 10px 12px;
+          padding: 8px 12px;
           background: white;
           border: none;
           cursor: pointer;
+          font-size: 0.85rem;
         }
 
         .dropdown-item:hover:not(.disabled) {
@@ -1012,7 +694,7 @@ export default function HeroSearch() {
 
         .dropdown-item small {
           display: block;
-          font-size: 0.7rem;
+          font-size: 0.65rem;
           color: #9ca3af;
           margin-top: 2px;
         }
@@ -1022,78 +704,18 @@ export default function HeroSearch() {
           flex-direction: column;
         }
 
-        .filter-bar-secondary {
-          background: white;
-          border-radius: 0 0 20px 20px;
-          padding: 12px 16px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          border: 1px solid #e1e1e1;
-          border-top: none;
-          flex-wrap: wrap;
-        }
-
-        .secondary-label {
-          font-size: 0.75rem;
-          color: #666;
-          font-weight: 600;
-          white-space: nowrap;
-        }
-
-        .bifurcated-inputs {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-          flex: 1;
-        }
-
-        .bifurcated-input {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          white-space: nowrap;
-          background: #f9f9f9;
-          padding: 4px 8px;
-          border-radius: 6px;
-          border: 1px solid #ddd;
-        }
-
-        .bifurcated-input span {
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: #333;
-        }
-
-        .bifurcated-select {
-          border: 1px solid #ccc;
-          background: white;
-          font-size: 0.85rem;
-          font-weight: 500;
-          color: #333;
-          outline: none;
-          width: 50px;
-          padding: 2px 4px;
-          cursor: pointer;
-          border-radius: 4px;
-        }
-
-        .bifurcated-select:focus {
-          border-color: #3b82f6;
-        }
-
-        /* New Scores Display Styles */
+        /* Scores Display Styles */
         .scores-display {
           flex: 1.2;
-          padding: 0 16px !important;
+          padding: 0 12px !important;
           border-right: 1px solid #eee !important;
-          min-width: 280px;
+          min-width: 240px;
         }
 
         .scores-text-container {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 1px;
           align-items: flex-start;
         }
 
@@ -1101,14 +723,14 @@ export default function HeroSearch() {
           display: flex;
           align-items: center;
           flex-wrap: nowrap;
-          gap: 12px;
-          font-size: 0.9rem;
+          gap: 8px;
+          font-size: 0.8rem;
           color: #333;
-          line-height: 1.4;
+          line-height: 1.3;
           min-width: 0;
           cursor: pointer;
-          padding: 4px 8px;
-          border-radius: 6px;
+          padding: 2px 6px;
+          border-radius: 4px;
           transition: background 0.2s;
         }
 
@@ -1116,32 +738,66 @@ export default function HeroSearch() {
           background: #f5f5f5;
         }
 
-        .scores-text-line span:first-child {
-          font-weight: 600;
-          font-size: 0.9rem;
+        .scores-title {
+          font-weight: 700;
+          font-size: 0.8rem;
           color: #333;
-          min-width: 45px;
+          white-space: nowrap;
         }
 
         .scores-value {
-          font-size: 0.9rem;
+          font-size: 0.8rem;
           color: #666;
           font-family: Inter, "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", Arial, sans-serif;
-          display: flex;
-          align-items: center;
         }
 
-        .scores-title {
-          font-weight: 700;
+        /* Search Button */
+        .search-btn {
+          background: #0f172a;
+          color: white;
+          border: none;
+          border-radius: 10px;
+          padding: 0 18px;
           font-size: 0.9rem;
-          color: #333;
-          margin-right: 4px;
+          font-weight: 600;
+          cursor: pointer;
+          margin-left: 6px;
           white-space: nowrap;
-          display: flex;
-          align-items: center;
+          transition: background 0.2s;
         }
 
-        /* Expanded Score Sections */
+        .search-btn:hover {
+          background: #1e293b;
+        }
+
+        /* Year Toggle */
+        .year-toggle {
+          display: flex;
+          background: #f0f0f0;
+          border-radius: 6px;
+          padding: 2px;
+          gap: 2px;
+        }
+
+        .year-btn {
+          border: none;
+          background: none;
+          padding: 3px 8px;
+          border-radius: 4px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #666;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .year-btn.active {
+          background: white;
+          color: #0f172a;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* Modal Styles */
         .modal-backdrop {
           position: fixed;
           top: 0;
@@ -1151,96 +807,6 @@ export default function HeroSearch() {
           background: rgba(0, 0, 0, 0.4);
           z-index: 1000;
           backdrop-filter: blur(2px);
-        }
-
-        .multi-modal-wrapper {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          z-index: 1001;
-          width: min(720px, calc(100vw - 48px));
-        }
-
-        .multi-modal {
-          background: white;
-          border-radius: 16px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-          padding: 16px 20px 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          max-height: min(520px, calc(100vh - 140px));
-          overflow: hidden;
-        }
-
-        .multi-body {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          overflow: hidden;
-        }
-
-        .chip-row {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .chip-button {
-          background: #f1f5f9;
-          border: 1px solid #e2e8f0;
-          border-radius: 10px;
-          padding: 6px 12px;
-          font-size: 0.9rem;
-          cursor: pointer;
-          transition: background 0.15s ease, border-color 0.15s ease;
-        }
-
-        .chip-button:hover {
-          background: #e2e8f0;
-          border-color: #cbd5e1;
-        }
-
-        .selected-text {
-          color: #555;
-          font-size: 0.9rem;
-          flex: 1;
-          min-width: 200px;
-        }
-
-        .multi-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-          gap: 10px;
-          overflow-y: auto;
-          padding-right: 4px;
-          max-height: 360px;
-        }
-
-        .multi-option {
-          border: 1px solid #d9e2ec;
-          background: #f8fafc;
-          border-radius: 10px;
-          padding: 10px 12px;
-          text-align: center;
-          cursor: pointer;
-          font-weight: 600;
-          color: #0f172a;
-          transition: all 0.15s ease;
-        }
-
-        .multi-option:hover {
-          border-color: #1e40af;
-          background: #eef2ff;
-        }
-
-        .multi-option.active {
-          background: #1e40af;
-          color: white;
-          border-color: #1e40af;
-          box-shadow: 0 6px 14px rgba(30, 64, 175, 0.25);
         }
 
         .score-modal-wrapper {
@@ -1432,51 +998,6 @@ export default function HeroSearch() {
           background: #1e40af;
           color: white;
           border-color: #1e40af;
-        }
-
-        /* removed modal-confirm-btn (replaced by inline button) */
-
-        .search-btn {
-          background: #0f172a; /* Dark blue */
-          color: white;
-          border: none;
-          border-radius: 14px;
-          padding: 0 24px;
-          font-size: 1rem;
-          font-weight: 600;
-          cursor: pointer;
-          margin-left: 10px; /* Space from last item */
-          white-space: nowrap;
-        }
-
-        .search-btn:hover {
-          background: #1e293b;
-        }
-
-        .year-toggle {
-          display: flex;
-          background: #f0f0f0;
-          border-radius: 8px;
-          padding: 2px;
-          gap: 2px;
-        }
-
-        .year-btn {
-          border: none;
-          background: none;
-          padding: 4px 8px;
-          border-radius: 6px;
-          font-size: 0.9rem;
-          font-weight: 600;
-          color: #666;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .year-btn.active {
-          background: white;
-          color: #0f172a;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
       `}</style>
     </div>

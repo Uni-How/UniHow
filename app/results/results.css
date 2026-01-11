@@ -76,6 +76,93 @@
   margin: 0;
 }
 
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.show-failed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #555;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.show-failed-toggle:hover {
+  background-color: #f5f5f5;
+}
+
+.show-failed-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #0F5AA8;
+  cursor: pointer;
+}
+
+.show-failed-toggle.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.show-failed-toggle .loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #0F5AA8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-left: 6px;
+}
+
+.results-toolbar h2 .loading-text {
+  color: #0F5AA8;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Refresh Overlay */
+.refresh-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 10;
+  border-radius: 12px;
+  color: #0F5AA8;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.refresh-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #0F5AA8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 .results-toolbar .filter-toggle-btn {
   position: static;
   box-shadow: none;
@@ -286,6 +373,8 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  position: relative;
+  min-height: 200px;
 }
 
 /* Right Panel: Detail Card (independent scroll) */
@@ -412,17 +501,17 @@
   color: #888;
 }
 
-.department-item .dept-tag {
-  font-size: 0.65rem !important;
-  padding: 0.1rem 0.35rem !important;
-  margin: 0 !important;
-  white-space: nowrap;
-}
-
 .department-item .dept-pending {
   font-size: 0.65rem;
   color: #ff9800;
   font-style: italic;
+}
+
+.department-item .dept-loading {
+  font-size: 0.65rem;
+  color: #0F5AA8;
+  font-style: italic;
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 /* Responsive */

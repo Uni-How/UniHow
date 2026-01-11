@@ -59,6 +59,7 @@ interface DepartmentListProps {
   onYearChange: (year: '114' | '115') => void;
   showFailedThreshold?: boolean;
   onToggleShowFailed?: (show: boolean) => void;
+  isLoadingDetail?: boolean;
 }
 
 type SortOption = 'default' | 'probability_high' | 'probability_low' | 'name';
@@ -70,7 +71,8 @@ export default function DepartmentList({
   onSelectDept,
   onYearChange,
   showFailedThreshold = false,
-  onToggleShowFailed
+  onToggleShowFailed,
+  isLoadingDetail = false
 }: DepartmentListProps) {
   const searchParams = useSearchParams();
   const method = searchParams.get('method') || 'personal_application';
@@ -300,7 +302,7 @@ export default function DepartmentList({
             >
               <div className="dept-main">
                 <span className="dept-name">{dept.department_name}</span>
-                <span className="dept-college">{dept.college}</span>
+                <span className="dept-college">{dept.academic_group || '其他'}</span>
               </div>
               <div className="dept-right" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {/* 機率標籤 */}
@@ -333,10 +335,11 @@ export default function DepartmentList({
                     未達門檻
                   </span>
                 )}
-                <span className="tag blue dept-tag">
-                  {dept.academic_group || '其他'}
-                </span>
-                {!hasData && selectedYear === '115' && (
+                {/* 載入中顯示 loading，載入完成後若無資料且為115年度則顯示待公告 */}
+                {!hasData && isLoadingDetail && (
+                  <span className="dept-loading">載入中...</span>
+                )}
+                {!hasData && !isLoadingDetail && selectedYear === '115' && (
                   <span className="dept-pending">待公告</span>
                 )}
               </div>
