@@ -4,7 +4,7 @@ import { MongoClient } from 'mongodb';
 config({ path: '.env.local' });
 
 async function run() {
-  const c = new MongoClient(process.env.MONGODB_URI2!);
+  const c = new MongoClient(process.env.MONGODB_URI!);
   await c.connect();
   
   // 查找南臺科技大學

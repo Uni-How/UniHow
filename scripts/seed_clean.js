@@ -3,10 +3,10 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: '.env.local' });
 
-const MONGODB_URI = process.env.MONGODB_URI2;
+const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  console.error('Error: MONGODB_URI2 is not defined in .env.local');
+  console.error('Error: MONGODB_URI is not defined in .env.local');
   process.exit(1);
 }
 

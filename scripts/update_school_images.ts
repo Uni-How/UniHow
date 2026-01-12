@@ -9,7 +9,7 @@ import { MongoClient } from 'mongodb';
 // 載入 .env.local 環境變數
 config({ path: '.env.local' });
 
-const MONGODB_URI = process.env.MONGODB_URI2 || process.env.MONGODB_URI || '';
+const MONGODB_URI = process.env.MONGODB_URI || '';
 
 // 已有直接 URL 的學校清單 (使用正確的 school_id)
 const SCHOOLS_WITH_DIRECT_URL: { school_id: string; name: string; imageUrl: string }[] = [

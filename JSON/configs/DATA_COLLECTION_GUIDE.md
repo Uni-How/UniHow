@@ -130,7 +130,7 @@ node -e "console.log(JSON.parse(require('fs').readFileSync('JSON/configs/score_c
 
 ```bash
 # 1. 連接到MongoDB
-# 確保 .env.local 中有 MONGODB_URI2 設定
+# 確保 .env.local 中有 MONGODB_URI 設定
 
 # 2. 建立 collections（如果尚未存在）
 # 參考 PLACEMENT_ANALYSIS_PLANNING_V2.md 第3章的資料庫設計

@@ -18,7 +18,7 @@ if (fs.existsSync(envPath)) {
   });
 }
 
-const MONGODB_URI = process.env.MONGODB_URI2 || process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI;
 
 async function run() {
   if (!MONGODB_URI) throw new Error('No Mongo URI');

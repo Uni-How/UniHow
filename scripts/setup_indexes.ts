@@ -10,10 +10,10 @@ import dotenv from 'dotenv';
 // 載入環境變數
 dotenv.config({ path: '.env.local' });
 
-const MONGODB_URI = process.env.MONGODB_URI2;
+const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI2 environment variable');
+  throw new Error('Please define the MONGODB_URI environment variable');
 }
 
 async function setupIndexes() {

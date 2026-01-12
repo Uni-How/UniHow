@@ -4,7 +4,7 @@ import { MongoClient } from 'mongodb';
 config({ path: '.env.local' });
 
 async function run() {
-  const c = new MongoClient(process.env.MONGODB_URI2!);
+  const c = new MongoClient(process.env.MONGODB_URI!);
   await c.connect();
   
   const schools = ['東吳大學', '中山醫學大學', '國立陽明交通大學', '淡江大學', '輔仁大學', 
