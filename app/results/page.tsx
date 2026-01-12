@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect, Suspense, useRef, useCallback } from 'react';
-import Navbar from '../components/Navbar';
 import FilterSidebar from '../components/FilterSidebar';
 import SchoolCard from '../components/SchoolCard';
 import SchoolDetail from '../components/SchoolDetail';
-import { useSearchParams } from 'next/navigation';
+import DepartmentList from '../components/DepartmentList';
+import ResultsSearchBar from '../components/ResultsSearchBar';
+import { SchoolCardSkeleton, DepartmentListSkeleton, SchoolDetailSkeleton } from '../components/Skeleton';
+import { useSearchParams, useRouter } from 'next/navigation';
+import './results.css';
 
 interface ISchool {
   _id: string;
@@ -33,6 +36,12 @@ interface ISchool {
     campus_ids: string[];
     admission_data?: any;
   }[];
+  placement_summary?: {
+    total_departments: number;
+    passed_threshold: number;
+    failed_threshold: number;
+  };
+  placement_analysis?: any;
 }
 
 // --- Results Page Component (搜尋結果主頁) ---
@@ -40,6 +49,7 @@ interface ISchool {
 
 function ResultsContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   
   // 1. State Management (狀態管理)
   // schools: 從 API 累資取得的所有學校資料 (隨著捲軸向下會越來越多)
@@ -51,10 +61,28 @@ function ResultsContent() {
   
   const [selectedSchool, setSelectedSchool] = useState<ISchool | null>(null);
   
+  // 詳細資料載入狀態
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  
+  // 新增：科系選擇狀態 (從 SchoolDetail 提升到這裡)
+  // 從 URL 讀取年份，確保與搜尋條件一致
+  const [selectedYear, setSelectedYear] = useState<'114' | '115'>((searchParams.get('year') || '114') as '114' | '115');
+  const [selectedDeptIndex, setSelectedDeptIndex] = useState<number>(0);
+  
+  // 新增：顯示未通過門檻的科系
+  const [showFailedThreshold, setShowFailedThreshold] = useState(false);
+  
+  // 同步 URL 年份變化
+  useEffect(() => {
+    const yearFromUrl = (searchParams.get('year') || '114') as '114' | '115';
+    setSelectedYear(yearFromUrl);
+  }, [searchParams]);
+  
   // Pagination State (分頁狀態)
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true); // 是否還有更多資料
   const [isFetching, setIsFetching] = useState(false); // 避免重複請求
+  const [isRefreshing, setIsRefreshing] = useState(false); // 刷新載入狀態（用於顯示全螢幕 loading）
   const [totalCount, setTotalCount] = useState(0); // 總筆數
   
   // Metadata state (從後端取得的可選篩選項目)
@@ -73,20 +101,62 @@ function ResultsContent() {
   // Client-Side Filter states (側邊欄篩選狀態)
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  
+  // 從 URL 初始化篩選條件（首次載入時讀取首頁傳來的參數）
+  useEffect(() => {
+    // 地區篩選
+    const regionFromUrl = searchParams.get('region');
+    if (regionFromUrl) {
+      const regions = regionFromUrl.split(',').filter(Boolean);
+      if (regions.length > 0) {
+        setSelectedRegions(regions);
+      }
+    }
+    
+    // 學群篩選
+    const groupFromUrl = searchParams.get('group');
+    if (groupFromUrl) {
+      const groups = groupFromUrl.split(',').filter(Boolean);
+      if (groups.length > 0) {
+        setSelectedGroups(groups);
+      }
+    }
+    
+    // 公/私立篩選
+    const typeFromUrl = searchParams.get('type');
+    if (typeFromUrl) {
+      const types = typeFromUrl.split(',').filter(Boolean);
+      if (types.length > 0) {
+        setSelectedTypes(types);
+      }
+    }
+  }, []); // 只在首次載入時執行
   
   // Observer Ref (用於偵測是否捲動到底部)
   const observerTarget = useRef(null);
 
   // 2. Fetch Function (資料獲取函式)
   // 核心邏輯：支援「追加 (Append)」與「刷新 (Refresh)」兩種模式
-  const fetchSchools = useCallback(async (pageNum: number, isRefresh: boolean = false) => {
+  const fetchSchools = useCallback(async (pageNum: number, isRefresh: boolean = false, includeFailedParam?: boolean) => {
       if (isFetching) return; // 防重入鎖
       setIsFetching(true);
+      
+      // 刷新模式時設置刷新狀態（用於顯示載入提示）
+      if (isRefresh) {
+        setIsRefreshing(true);
+      }
 
       try {
         const params = new URLSearchParams(searchParams.toString());
         params.set('limit', '12'); // 每次載入 12 筆
         params.set('page', pageNum.toString());
+        
+        // 加入未通過門檻參數
+        const includeFailed = includeFailedParam ?? showFailedThreshold;
+        if (includeFailed) {
+          params.set('includeFailedThreshold', 'true');
+        }
 
         const res = await fetch(`/api/schools?${params.toString()}`);
         if (!res.ok) throw new Error('Failed to fetch');
@@ -123,6 +193,7 @@ function ResultsContent() {
         console.error('Failed to fetch schools:', error);
       } finally {
         setIsFetching(false);
+        setIsRefreshing(false);
       }
   }, [searchParams, isFetching]);
 
@@ -130,6 +201,7 @@ function ResultsContent() {
   const checkAndFetchDetail = async (school: ISchool) => {
       const needsDetail = school.departments.some(d => !d.admission_data);
       if (needsDetail) {
+         setIsLoadingDetail(true);
          try {
              // [Fix] 必須將原本的搜尋條件 (searchParams) 一併帶入，
              // 否則後端會變成 "Simple Query Mode" 導致回傳所有科系 (而非篩選後的科系)，
@@ -151,6 +223,9 @@ function ResultsContent() {
                  setSchools(prev => prev.map(s => s.school_id === full.school_id ? full : s));
              }
          } catch(e) { console.error(e); }
+         finally {
+             setIsLoadingDetail(false);
+         }
       } else {
           setSelectedSchool(school);
       }
@@ -195,6 +270,11 @@ function ResultsContent() {
   useEffect(() => {
     let filtered = schools;
 
+    // School type filter (公/私立篩選)
+    if (selectedTypes.length > 0) {
+      filtered = filtered.filter(school => selectedTypes.includes(school.school_type));
+    }
+
     // Region filter (地區篩選)
     // 檢查學校的主校區是否位於選定的地區 (北北基 / 桃竹苗...)
     if (selectedRegions.length > 0) {
@@ -238,104 +318,313 @@ function ResultsContent() {
         setSelectedSchool(null);
     }
     
-  }, [selectedRegions, selectedGroups, schools]);
+  }, [selectedRegions, selectedGroups, selectedTypes, schools]);
+
+  // 更新 URL 參數的輔助函數（不重新觸發 API 請求）
+  const updateUrlParams = useCallback((newRegions: string[], newGroups: string[], newTypes: string[]) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
+    // 更新地區參數
+    if (newRegions.length > 0) {
+      params.set('region', newRegions.join(','));
+    } else {
+      params.delete('region');
+    }
+    
+    // 更新學群參數
+    if (newGroups.length > 0) {
+      params.set('group', newGroups.join(','));
+    } else {
+      params.delete('group');
+    }
+    
+    // 更新公/私立參數
+    if (newTypes.length > 0) {
+      params.set('type', newTypes.join(','));
+    } else {
+      params.delete('type');
+    }
+    
+    // 使用 replace 而非 push，避免產生過多歷史記錄
+    router.replace(`/results?${params.toString()}`, { scroll: false });
+  }, [searchParams, router]);
 
   const toggleRegion = (region: string) => {
-    setSelectedRegions(prev => prev.includes(region) ? prev.filter(r => r !== region) : [...prev, region]);
+    setSelectedRegions(prev => {
+      const newRegions = prev.includes(region) ? prev.filter(r => r !== region) : [...prev, region];
+      // 同步更新 URL
+      updateUrlParams(newRegions, selectedGroups, selectedTypes);
+      return newRegions;
+    });
   };
 
   const toggleGroup = (group: string) => {
-    setSelectedGroups(prev => prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group]);
+    setSelectedGroups(prev => {
+      const newGroups = prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group];
+      // 同步更新 URL
+      updateUrlParams(selectedRegions, newGroups, selectedTypes);
+      return newGroups;
+    });
+  };
+
+  const toggleType = (type: string) => {
+    setSelectedTypes(prev => {
+      const newTypes = prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type];
+      // 同步更新 URL
+      updateUrlParams(selectedRegions, selectedGroups, newTypes);
+      return newTypes;
+    });
   };
 
   const handleSchoolClick = (school: ISchool) => {
     setSelectedSchool(school);
+    setSelectedDeptIndex(0); // 重置科系選擇
     checkAndFetchDetail(school);
   };
 
+  // Scroll handling for header visibility
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  
+  // Filter panel state
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  useEffect(() => {
+    const leftPanel = leftPanelRef.current;
+    if (!leftPanel) return;
+
+    const handleScroll = () => {
+      const currentScrollY = leftPanel.scrollTop;
+      
+      // 向上捲動時顯示 header，向下捲動時隱藏
+      if (currentScrollY < lastScrollY.current) {
+        setHeaderVisible(true);
+      } else if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+        setHeaderVisible(false);
+      }
+      
+      lastScrollY.current = currentScrollY;
+    };
+
+    leftPanel.addEventListener('scroll', handleScroll, { passive: true });
+    return () => leftPanel.removeEventListener('scroll', handleScroll);
+  }, []);
+  
+  // Close filter panel when clicking outside or pressing Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFilterOpen(false);
+    };
+    
+    if (filterOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden'; // Prevent body scroll when filter open
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [filterOpen]);
+  
+  // Calculate active filter count
+  const activeFilterCount = selectedRegions.length + selectedGroups.length;
+
   return (
-    <>
-      <Navbar />
-
-      {/* Action Chips Row */}
-      <section className="actions-row">
-        <div className="tabs">
-          <button className="tab active">選校</button>
-          <button className="tab">選系</button>
-        </div>
-        <div className="actions">
-          <button className="chip">匯出表格</button>
-          <button className="chip">儲存搜尋結果</button>
-          <button className="chip">排序方式: 過篩機率</button>
-          <button className="chip ghost">進階搜尋</button>
-        </div>
-      </section>
-
-      {/* Main Content Grid */}
-      <main className="content twocol">
-        <FilterSidebar 
-          metadata={metadata}
-          selectedRegions={selectedRegions}
-          selectedGroups={selectedGroups}
-          filteredCount={totalCount} 
-          onToggleRegion={toggleRegion}
-          onToggleGroup={toggleGroup}
-          onClearFilters={() => {
-            setSelectedRegions([]);
-            setSelectedGroups([]);
-          }}
-        />
-
-        <section className="results">
-          <div className="mb-6 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800">
-              篩選結果 : {totalCount} 所學校
-            </h2>
+    <div className="results-page">
+      {/* Fixed Header Area */}
+      <div className={`results-header ${headerVisible ? 'visible' : 'hidden'}`}>
+        <div className="header-inner-row">
+          <a href="/" className="header-logo">UniHow</a>
+          <div className="header-search-bar">
+            <ResultsSearchBar />
           </div>
+        </div>
+      </div>
 
-          <div className="space-y-4">
-             {filteredSchools.map((school) => (
-                <SchoolCard 
-                  key={school._id} 
-                  school={school} 
-                  isSelected={selectedSchool?._id === school._id}
-                  onClick={() => handleSchoolClick(school)}
-                />
-             ))}
-             
-             {/* Infinite Scroll Loading & Sentinel */}
-             {(isFetching) && (
-                <div className="py-4 text-center text-gray-500">
-                   載入更多資料...
+      {/* Filter Overlay */}
+      <div 
+        className={`filter-overlay ${filterOpen ? 'visible' : ''}`}
+        onClick={() => setFilterOpen(false)}
+      />
+
+      {/* Filter Panel (Floating) */}
+      <div className={`filter-panel ${filterOpen ? 'open' : ''}`}>
+        <div className="filter-panel-header">
+          <h3>篩選條件</h3>
+          <button className="filter-close-btn" onClick={() => setFilterOpen(false)}>×</button>
+        </div>
+        <div className="filter-panel-content">
+          <FilterSidebar 
+            metadata={metadata}
+            selectedRegions={selectedRegions}
+            selectedGroups={selectedGroups}
+            selectedTypes={selectedTypes}
+            filteredCount={totalCount} 
+            onToggleRegion={toggleRegion}
+            onToggleGroup={toggleGroup}
+            onToggleType={toggleType}
+            onClearFilters={() => {
+              setSelectedRegions([]);
+              setSelectedGroups([]);
+              setSelectedTypes([]);
+              updateUrlParams([], [], []);
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Results Toolbar */}
+      <div className="results-toolbar">
+        <h2>
+          篩選結果 : {isRefreshing ? (
+            <span className="loading-text">載入中...</span>
+          ) : (
+            `${totalCount} 所學校`
+          )}
+        </h2>
+        <div className="toolbar-actions">
+          <label className={`show-failed-toggle ${isRefreshing ? 'loading' : ''}`}>
+            <input 
+              type="checkbox" 
+              checked={showFailedThreshold}
+              disabled={isRefreshing}
+              onChange={(e) => {
+                setShowFailedThreshold(e.target.checked);
+                fetchSchools(1, true, e.target.checked);
+              }}
+            />
+            <span>顯示未通過門檻校系</span>
+            {isRefreshing && <span className="loading-spinner"></span>}
+          </label>
+          <button 
+            className="filter-toggle-btn"
+            onClick={() => setFilterOpen(true)}
+          >
+            <span className="filter-icon">☰</span>
+            <span>進階篩選</span>
+            {activeFilterCount > 0 && (
+              <span className="filter-count">{activeFilterCount}</span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <main className={`results-main ${headerVisible ? 'header-visible' : 'header-hidden'}`}>
+        {/* Left Panel: School List (獨立捲動) */}
+        <div className="left-panel" ref={leftPanelRef}>
+          {/* 刷新載入時顯示 Overlay */}
+          {isRefreshing && schools.length > 0 && (
+            <div className="refresh-overlay">
+              <div className="refresh-spinner"></div>
+              <span>正在載入...</span>
+            </div>
+          )}
+          
+          <section className="school-list">
+            <div className="space-y-4">
+               {/* Initial Loading Skeletons */}
+               {isFetching && schools.length === 0 && (
+                  <>
+                    <SchoolCardSkeleton />
+                    <SchoolCardSkeleton />
+                    <SchoolCardSkeleton />
+                    <SchoolCardSkeleton />
+                  </>
+               )}
+               
+               {filteredSchools.map((school) => (
+                  <SchoolCard 
+                    key={school._id} 
+                    school={school} 
+                    isSelected={selectedSchool?._id === school._id}
+                    onClick={() => handleSchoolClick(school)}
+                  />
+               ))}
+               
+               {/* Infinite Scroll Loading Indicator - 使用固定高度，不改變佈局 */}
+               {isFetching && schools.length > 0 && (
+                  <div style={{ height: '88px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        border: '3px solid #e0e0e0',
+                        borderTopColor: '#0F5AA8',
+                        borderRadius: '50%',
+                        animation: 'spin 0.8s linear infinite'
+                      }}></div>
+                      <span style={{ fontSize: '0.85rem', color: '#999' }}>載入中...</span>
+                    </div>
+                  </div>
+               )}
+
+              {!isFetching && filteredSchools.length === 0 && schools.length > 0 && (
+                 <div style={{ minHeight: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.9rem', background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                   符合條件的學校已被篩選移除 (請清除左側篩選)
+                 </div>
+              )}
+
+              {!isFetching && schools.length === 0 && (
+                <div style={{ minHeight: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.9rem', background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  沒有符合條件的學校
                 </div>
-             )}
-             
-             <div ref={observerTarget} style={{ height: '20px', marginTop: '10px' }}></div>
+              )}
+              
+              {!hasMore && schools.length > 0 && (
+                 <div style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', fontSize: '0.875rem' }}>
+                    已經到底囉
+                 </div>
+              )}
+              
+               {/* 觀察目標：只在還有更多資料時才用於觸發加載 */}
+               {hasMore && <div ref={observerTarget} style={{ height: '2px', marginTop: '4px' }}></div>}
+            </div>
+          </section>
+        </div>
 
-            {!isFetching && filteredSchools.length === 0 && schools.length > 0 && (
-               /* Special case: Data exists but filtered out by Sidebar */
-               <div className="text-center py-12 text-gray-500 bg-white rounded-lg shadow">
-                 符合條件的學校已被篩選移除 (請清除左側篩選)
-               </div>
-            )}
+        {/* Middle Panel: Department List (獨立捲動) */}
+        <div className="middle-panel">
+          {!selectedSchool ? (
+            <DepartmentListSkeleton />
+          ) : (
+            <DepartmentList
+              school={selectedSchool}
+              selectedYear={selectedYear}
+              selectedDeptIndex={selectedDeptIndex}
+              onSelectDept={setSelectedDeptIndex}
+              onYearChange={setSelectedYear}
+              showFailedThreshold={showFailedThreshold}
+              onToggleShowFailed={(show) => {
+                setShowFailedThreshold(show);
+                // 刷新目前頁面資料以包含/排除未通過門檻的科系
+                fetchSchools(1, true, show);
+              }}
+              isLoadingDetail={isLoadingDetail}
+            />
+          )}
+        </div>
 
-            {!isFetching && schools.length === 0 && (
-              <div className="text-center py-12 text-gray-500 bg-white rounded-lg shadow">
-                沒有符合條件的學校
-              </div>
-            )}
-            
-            {!hasMore && schools.length > 0 && (
-               <div className="text-center py-4 text-gray-400 text-sm">
-                  已經到底囉
-               </div>
-            )}
-          </div>
-        </section>
-
-        <SchoolDetail school={selectedSchool} />
+        {/* Right Panel: Detail Card (獨立捲動) */}
+        <div className="right-panel">
+          {!selectedSchool ? (
+            <SchoolDetailSkeleton />
+          ) : isLoadingDetail ? (
+            <SchoolDetailSkeleton />
+          ) : (
+            <SchoolDetail 
+              school={selectedSchool} 
+              selectedYear={selectedYear}
+              selectedDeptIndex={selectedDeptIndex}
+            />
+          )}
+        </div>
       </main>
-    </>
+    </div>
   );
 }
 

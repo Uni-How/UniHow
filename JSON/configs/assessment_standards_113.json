@@ -1,0 +1,54 @@
+{
+  "academic_year": 113,
+  "description": "113學年度學科能力測驗級分標準（全國統一）",
+  "last_updated": "2024-02-01",
+  "source": "大考中心公告",
+  "academic_ability_test": {
+    "chinese": {
+      "top": 13,
+      "front": 12,
+      "average": 11,
+      "back": 9,
+      "bottom": 8
+    },
+    "english": {
+      "top": 13,
+      "front": 11,
+      "average": 8,
+      "back": 5,
+      "bottom": 3
+    },
+    "math_a": {
+      "top": 12,
+      "front": 10,
+      "average": 7,
+      "back": 5,
+      "bottom": 3
+    },
+    "math_b": {
+      "top": 12,
+      "front": 9,
+      "average": 6,
+      "back": 4,
+      "bottom": 3
+    },
+    "social": {
+      "top": 13,
+      "front": 12,
+      "average": 10,
+      "back": 8,
+      "bottom": 6
+    },
+    "nature": {
+      "top": 13,
+      "front": 12,
+      "average": 9,
+      "back": 6,
+      "bottom": 5
+    }
+  },
+  "english_listening": {
+    "description": "英聽等級標準（A/B/C/F）",
+    "levels": ["A", "B", "C", "F"]
+  }
+}

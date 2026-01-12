@@ -1,0 +1,81 @@
+{
+  "_id": "bifurcated_standards_114",
+  "academic_year": 114,
+  "description": "114學年度分科測驗級分標準（全國統一）",
+  "last_updated": "2025-02-01",
+  "source": "大考中心公告",
+  "bifurcated_exam_standards": {
+    "math_a": {
+      "subject_name": "數學甲",
+      "raw_score_max": 100,
+      "top": 46,
+      "front": 39,
+      "average": 27,
+      "back": 16,
+      "bottom": 11
+    },
+    "math_b": {
+      "subject_name": "數學乙",
+      "raw_score_max": 100,
+      "top": 52,
+      "front": 44,
+      "average": 30,
+      "back": 18,
+      "bottom": 12
+    },
+    "chemistry": {
+      "subject_name": "化學",
+      "raw_score_max": 100,
+      "top": 50,
+      "front": 44,
+      "average": 32,
+      "back": 21,
+      "bottom": 15
+    },
+    "physics": {
+      "subject_name": "物理",
+      "raw_score_max": 100,
+      "top": 52,
+      "front": 44,
+      "average": 31,
+      "back": 20,
+      "bottom": 15
+    },
+    "biology": {
+      "subject_name": "生物",
+      "raw_score_max": 100,
+      "top": 53,
+      "front": 47,
+      "average": 35,
+      "back": 25,
+      "bottom": 21
+    },
+    "history": {
+      "subject_name": "歷史",
+      "raw_score_max": 100,
+      "top": 50,
+      "front": 45,
+      "average": 38,
+      "back": 32,
+      "bottom": 27
+    },
+    "geography": {
+      "subject_name": "地理",
+      "raw_score_max": 100,
+      "top": 53,
+      "front": 47,
+      "average": 39,
+      "back": 31,
+      "bottom": 26
+    },
+    "civic_society": {
+      "subject_name": "公民與社會",
+      "raw_score_max": 100,
+      "top": 50,
+      "front": 45,
+      "average": 37,
+      "back": 30,
+      "bottom": 24
+    }
+  }
+}

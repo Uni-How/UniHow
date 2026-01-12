@@ -7,9 +7,11 @@ interface FilterSidebarProps {
   };
   selectedRegions: string[];
   selectedGroups: string[];
+  selectedTypes: string[];
   filteredCount: number;
   onToggleRegion: (region: string) => void;
   onToggleGroup: (group: string) => void;
+  onToggleType: (type: string) => void;
   onClearFilters: () => void;
 }
 
@@ -17,16 +19,20 @@ interface FilterSidebarProps {
 // 這是一個 Controlled Component (受控組件)，
 // 其狀態 (selectedRegions, selectedGroups) 完全由父組件 (ResultsPage) 管理。
 
+const SCHOOL_TYPES = ['公立', '私立'];
+
 export default function FilterSidebar({
   metadata,
   selectedRegions,
   selectedGroups,
+  selectedTypes,
   filteredCount,
   onToggleRegion,
   onToggleGroup,
+  onToggleType,
   onClearFilters,
 }: FilterSidebarProps) {
-  const hasActiveFilters = selectedRegions.length > 0 || selectedGroups.length > 0;
+  const hasActiveFilters = selectedRegions.length > 0 || selectedGroups.length > 0 || selectedTypes.length > 0;
 
   return (
     <aside className="sidebar">
@@ -47,11 +53,31 @@ export default function FilterSidebar({
 
       <div className="filter-group">
         <button className="filter-title" aria-expanded="true">
+          <span>公/私立：</span>
+          <span className="caret"></span>
+        </button>
+        <div className="checklist">
+          {SCHOOL_TYPES.map(type => (
+            <label key={type}>
+              <input 
+                type="checkbox" 
+                checked={selectedTypes.includes(type)}
+                onChange={() => onToggleType(type)}
+              /> {type}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <hr className="sep" />
+
+      <div className="filter-group">
+        <button className="filter-title" aria-expanded="true">
           <span>地區：</span>
           <span className="caret"></span>
         </button>
         <div className="checklist">
-          {(metadata.regions.length > 0 ? metadata.regions : ['北北基', '桃竹苗', '宜花東', '中彰投', '雲嘉南', '高屏', '離島']).map(region => (
+          {(metadata.regions.length > 0 ? [...metadata.regions].sort() : ['北北基', '桃竹苗', '宜花東', '中彰投', '雲嘉南', '高屏', '離島']).map(region => (
             <label key={region}>
               <input 
                 type="checkbox" 
@@ -71,7 +97,7 @@ export default function FilterSidebar({
           <span className="caret"></span>
         </button>
         <div className="checklist long">
-          {(metadata.academic_groups.length > 0 ? metadata.academic_groups : []).map(group => (
+          {(metadata.academic_groups.length > 0 ? [...metadata.academic_groups].sort((a, b) => a.localeCompare(b, 'zh-TW')) : []).map(group => (
             <label key={group}>
               <input 
                 type="checkbox" 
