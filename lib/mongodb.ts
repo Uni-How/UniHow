@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { Db } from 'mongodb';
 
 const MONGODB_URI = process.env.MONGODB_URI2;
 
@@ -6,22 +7,18 @@ if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI2 environment variable inside .env.local');
 }
 
-interface MongooseCache {
-  conn: typeof mongoose | null;
-  promise: Promise<typeof mongoose> | null;
-}
-
-declare global {
-  var mongoose: MongooseCache;
-}
-
-let cached = global.mongoose;
+/**
+ * Global is used here to maintain a cached connection across hot reloads
+ * in development. This prevents connections growing exponentially
+ * during API Route usage.
+ */
+let cached = (global as any).mongoose;
 
 if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+  cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
-async function dbConnect() {
+async function dbConnect(): Promise<Db> {
   if (cached.conn) {
     return cached.conn;
   }
@@ -32,7 +29,8 @@ async function dbConnect() {
     };
 
     cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
-      return mongoose;
+      // 返回原生 MongoDB Db 實例
+      return mongoose.connection.getClient().db('admission_db');
     });
   }
   

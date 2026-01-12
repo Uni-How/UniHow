@@ -14,18 +14,22 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
+
+
+
+
 async function seed() {
   try {
     await mongoose.connect(MONGODB_URI!);
     console.log('Connected to MongoDB');
 
-    // READ TEST1.json
-    const filePath = path.join(process.cwd(), 'JSON', 'TEST1.json');
+    // READ data_structured_final_1216.json
+    const filePath = path.join(process.cwd(), '資料JSON檔', 'data_structured_final_1216.json');
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     const data = JSON.parse(fileContent);
     
     // Ensure data is array
-    const schools = Array.isArray(data) ? data : [data];
+    const schools = data.schools || (Array.isArray(data) ? data : [data]);
 
     console.log(`Found ${schools.length} schools to import.`);
 
@@ -46,5 +50,9 @@ async function seed() {
     process.exit(1);
   }
 }
+
+
+
+
 
 seed();
