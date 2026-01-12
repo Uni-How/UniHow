@@ -93,6 +93,19 @@ export default function DepartmentList({
     
     let depts = [...school.departments];
     
+    // 過濾：根據 showFailedThreshold 決定是否顯示未通過門檻的科系
+    if (hasScores && !showFailedThreshold) {
+      depts = depts.filter(dept => {
+        const analysis = dept.placement_analysis;
+        // 如果有分析資料且未通過門檻，則過濾掉
+        if (analysis && !analysis.threshold_check.all_pass) {
+          return false;
+        }
+        // 否則保留（包括有門檻且通過、以及沒有分析資料的科系）
+        return true;
+      });
+    }
+    
     if (hasScores && sortBy !== 'default') {
       depts.sort((a, b) => {
         const aAnalysis = a.placement_analysis;
@@ -123,7 +136,7 @@ export default function DepartmentList({
     }
     
     return depts;
-  }, [school, sortBy, hasScores]);
+  }, [school, sortBy, hasScores, showFailedThreshold]);
 
   const getConfidenceInfo = (level: string | undefined): { label: string; color: string; bgColor: string } => {
     switch (level) {

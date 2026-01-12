@@ -50,9 +50,25 @@ function SchoolCard({ school, isSelected, onClick }: SchoolCardProps) {
   };
 
   const getSchoolImage = (school: ISchool) => {
-    if (school.school_images && school.school_images.length > 0) {
-      return school.school_images[0];
+    const urls = school.school_images || [];
+    const hasImageExt = (u: string) => /\.(jpg|jpeg|png|webp|gif|svg)(\?|#|$)/i.test(u);
+
+    for (const raw of urls) {
+      const clean = raw?.trim();
+      if (!clean) continue;
+      const normalized = clean.replace(/\s+/g, '');
+      try {
+        // 確保是 http/https 並且看起來像圖片連結
+        const urlObj = new URL(normalized);
+        if ((urlObj.protocol === 'http:' || urlObj.protocol === 'https:') && hasImageExt(urlObj.pathname + urlObj.search)) {
+          return urlObj.toString();
+        }
+      } catch (e) {
+        // ignore invalid URL
+      }
     }
+
+    // fallback placeholder
     return `https://placehold.co/800x400/e0e0e0/666?text=${encodeURIComponent(school.school_name)}`;
   };
 
@@ -62,9 +78,10 @@ function SchoolCard({ school, isSelected, onClick }: SchoolCardProps) {
       onClick={onClick}
       style={{ 
         cursor: 'pointer',
-        border: isSelected ? '2px solid #0F5AA8' : undefined,
+        outline: isSelected ? '2px solid #0F5AA8' : undefined,
+        outlineOffset: '-2px',
         transform: isSelected ? 'translateX(4px)' : undefined,
-        transition: 'all 0.2s ease'
+        transition: 'outline 0.2s ease, transform 0.2s ease'
       }}
     >
       <div className="thumb">
@@ -81,11 +98,47 @@ function SchoolCard({ school, isSelected, onClick }: SchoolCardProps) {
         </div>
         <div className="sub">{getMainLocation(school)}</div>
         <div className="tags">
-          {Array.from(new Set(school.departments.map(d => d.academic_group))).slice(0, 4).map((group, idx) => (
-            <span key={idx} className={`tag ${['blue', 'lime', 'mint', 'pink'][idx % 4]}`}>
-              {group}
-            </span>
-          ))}
+          {(() => {
+            const uniqueGroups = Array.from(new Set(school.departments.map(d => d.academic_group).filter(Boolean)));
+            const displayedGroups = uniqueGroups.slice(0, 4);
+            const remainingCount = uniqueGroups.length - 4;
+
+            return (
+              <>
+                {displayedGroups.map((group, index) => (
+                  <span 
+                    key={`${group}-${index}`}
+                    className="tag"
+                    style={{ 
+                      backgroundColor: 'transparent',
+                      color: '#0F5AA8',
+                      fontWeight: 600,
+                      border: '1px solid #0F5AA8',
+                      borderRadius: '4px',
+                      padding: '2px 6px',
+                      fontSize: '12px',
+                      height: 'auto'
+                    }}
+                  >
+                    {group}
+                  </span>
+                ))}
+                {remainingCount > 0 && (
+                  <span key="remaining-count" className="tag" style={{ 
+                    backgroundColor: 'transparent',
+                    color: '#999',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '12px',
+                    height: 'auto'
+                  }}>
+                    還有{remainingCount}個
+                  </span>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
     </article>

@@ -148,10 +148,8 @@
   justify-content: center;
   gap: 12px;
   z-index: 10;
-  border-radius: 12px;
-  color: #0F5AA8;
-  font-size: 0.9rem;
-  font-weight: 500;
+  backdrop-filter: blur(2px);
+  pointer-events: none;
 }
 
 .refresh-spinner {
@@ -180,7 +178,7 @@
 .results-main {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(320px, 2fr) minmax(160px, 0.7fr) minmax(260px, 0.9fr);
+  grid-template-columns: minmax(260px, 1.5fr) minmax(200px, 1fr) minmax(280px, 1.2fr);
   gap: 16px;
   padding: 0 32px;
   overflow: hidden;
@@ -343,6 +341,9 @@
   padding-right: 8px;
   padding-bottom: 20px;
   height: 100%;
+  position: relative;
+  contain: paint;
+  will-change: scroll-position;
   /* Custom scrollbar */
   scrollbar-width: thin;
   scrollbar-color: #c5d3e0 transparent;
@@ -367,6 +368,7 @@
   flex-direction: column;
   gap: 16px;
   padding-bottom: 20px;
+  position: relative;
 }
 
 .school-list .space-y-4 {
@@ -386,6 +388,11 @@
   height: 100%;
   scrollbar-width: thin;
   scrollbar-color: #c5d3e0 transparent;
+}
+.right-panel {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: scroll-position;
 }
 
 .right-panel::-webkit-scrollbar {
@@ -407,6 +414,9 @@
   height: auto;
   min-height: 100%;
   overflow: visible;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 /* Middle Panel: Department List */
@@ -418,6 +428,11 @@
   height: 100%;
   scrollbar-width: thin;
   scrollbar-color: #c5d3e0 transparent;
+}
+.middle-panel {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: scroll-position;
 }
 
 .middle-panel::-webkit-scrollbar {
@@ -441,6 +456,11 @@
   padding: 1rem;
   box-shadow: 0 4px 10px rgba(11,34,64,0.04);
 }
+.department-panel {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+}
 
 .department-items {
   display: flex;
@@ -459,6 +479,11 @@
   align-items: flex-start;
   gap: 0.3rem;
   font-size: 0.85rem;
+}
+.department-item {
+  transition: background-color 0.15s ease, color 0.15s ease, border-left 0.15s ease, opacity 0.15s ease;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .department-item .dept-main {
@@ -517,7 +542,7 @@
 /* Responsive */
 @media (max-width: 1200px) {
   .results-main {
-    grid-template-columns: minmax(260px, 2fr) minmax(140px, 0.7fr) minmax(220px, 0.9fr);
+    grid-template-columns: minmax(240px, 1fr) minmax(180px, 1fr) minmax(240px, 1.1fr);
     padding: 20px 16px 30px;
   }
   

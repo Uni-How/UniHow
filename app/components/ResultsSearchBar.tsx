@@ -412,17 +412,27 @@ export default function ResultsSearchBar() {
                               if (e.key === 'Enter' && scores[selectedSubject as keyof typeof scores]) {
                                 const subjects = ['chinese', 'english', 'mathA', 'mathB', 'science', 'social'];
                                 const currentIndex = subjects.indexOf(selectedSubject);
+                                let hasUnfilled = false;
+                                
                                 for (let i = currentIndex + 1; i < subjects.length; i++) {
                                   if (!scores[subjects[i] as keyof typeof scores]) {
                                     setSelectedSubject(subjects[i]);
+                                    hasUnfilled = true;
                                     return;
                                   }
                                 }
+                                
                                 for (let i = 0; i < currentIndex; i++) {
                                   if (!scores[subjects[i] as keyof typeof scores]) {
                                     setSelectedSubject(subjects[i]);
+                                    hasUnfilled = true;
                                     return;
                                   }
+                                }
+                                
+                                // 如果所有科目都已填写，只取消选中科目（保持面板开启）
+                                if (!hasUnfilled) {
+                                  setSelectedSubject(null);
                                 }
                               }
                             }}
@@ -446,17 +456,29 @@ export default function ResultsSearchBar() {
                                 handleScoreChange(selectedSubject, String(level));
                                 const subjects = ['chinese', 'english', 'mathA', 'mathB', 'science', 'social'];
                                 const currentIndex = subjects.indexOf(selectedSubject);
+                                let hasUnfilled = false;
+                                
                                 for (let i = currentIndex + 1; i < subjects.length; i++) {
                                   if (!scores[subjects[i] as keyof typeof scores]) {
                                     setTimeout(() => setSelectedSubject(subjects[i]), 50);
+                                    hasUnfilled = true;
                                     return;
                                   }
                                 }
+                                
                                 for (let i = 0; i < currentIndex; i++) {
                                   if (!scores[subjects[i] as keyof typeof scores]) {
                                     setTimeout(() => setSelectedSubject(subjects[i]), 50);
+                                    hasUnfilled = true;
                                     return;
                                   }
+                                }
+                                
+                                // 如果所有科目都已填写，只取消选中科目（保持面板开启）
+                                if (!hasUnfilled) {
+                                  setTimeout(() => {
+                                    setSelectedSubject(null);
+                                  }, 100);
                                 }
                               }}
                             >
@@ -504,17 +526,27 @@ export default function ResultsSearchBar() {
                               if (e.key === 'Enter' && bifurcatedScores[selectedSubject as keyof typeof bifurcatedScores]) {
                                 const subjects = ['mathIA', 'mathIB', 'physics', 'chemistry', 'biology', 'history', 'geography', 'civics'];
                                 const currentIndex = subjects.indexOf(selectedSubject);
+                                let hasUnfilled = false;
+                                
                                 for (let i = currentIndex + 1; i < subjects.length; i++) {
                                   if (!bifurcatedScores[subjects[i] as keyof typeof bifurcatedScores]) {
                                     setSelectedSubject(subjects[i]);
+                                    hasUnfilled = true;
                                     return;
                                   }
                                 }
+                                
                                 for (let i = 0; i < currentIndex; i++) {
                                   if (!bifurcatedScores[subjects[i] as keyof typeof bifurcatedScores]) {
                                     setSelectedSubject(subjects[i]);
+                                    hasUnfilled = true;
                                     return;
                                   }
+                                }
+                                
+                                // 如果所有科目都已填写，只取消选中科目（保持面板开启）
+                                if (!hasUnfilled) {
+                                  setSelectedSubject(null);
                                 }
                               }
                             }}
@@ -538,17 +570,29 @@ export default function ResultsSearchBar() {
                                 handleBifurcatedScoreChange(selectedSubject, String(level));
                                 const subjects = ['mathIA', 'mathIB', 'physics', 'chemistry', 'biology', 'history', 'geography', 'civics'];
                                 const currentIndex = subjects.indexOf(selectedSubject);
+                                let hasUnfilled = false;
+                                
                                 for (let i = currentIndex + 1; i < subjects.length; i++) {
                                   if (!bifurcatedScores[subjects[i] as keyof typeof bifurcatedScores]) {
                                     setTimeout(() => setSelectedSubject(subjects[i]), 50);
+                                    hasUnfilled = true;
                                     return;
                                   }
                                 }
+                                
                                 for (let i = 0; i < currentIndex; i++) {
                                   if (!bifurcatedScores[subjects[i] as keyof typeof bifurcatedScores]) {
                                     setTimeout(() => setSelectedSubject(subjects[i]), 50);
+                                    hasUnfilled = true;
                                     return;
                                   }
+                                }
+                                
+                                // 如果所有科目都已填写，只取消选中科目（保持面板开启）
+                                if (!hasUnfilled) {
+                                  setTimeout(() => {
+                                    setSelectedSubject(null);
+                                  }, 100);
                                 }
                               }}
                             >

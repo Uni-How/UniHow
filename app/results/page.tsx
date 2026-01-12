@@ -517,16 +517,16 @@ function ResultsContent() {
       <main className={`results-main ${headerVisible ? 'header-visible' : 'header-hidden'}`}>
         {/* Left Panel: School List (獨立捲動) */}
         <div className="left-panel" ref={leftPanelRef}>
+          {/* 刷新載入時顯示 Overlay */}
+          {isRefreshing && schools.length > 0 && (
+            <div className="refresh-overlay">
+              <div className="refresh-spinner"></div>
+              <span>正在載入...</span>
+            </div>
+          )}
+          
           <section className="school-list">
             <div className="space-y-4">
-               {/* 刷新載入時顯示 Overlay */}
-               {isRefreshing && schools.length > 0 && (
-                  <div className="refresh-overlay">
-                    <div className="refresh-spinner"></div>
-                    <span>正在載入...</span>
-                  </div>
-               )}
-               
                {/* Initial Loading Skeletons */}
                {isFetching && schools.length === 0 && (
                   <>
@@ -546,33 +546,43 @@ function ResultsContent() {
                   />
                ))}
                
-               {/* Infinite Scroll Loading */}
+               {/* Infinite Scroll Loading Indicator - 使用固定高度，不改變佈局 */}
                {isFetching && schools.length > 0 && (
-                  <>
-                    <SchoolCardSkeleton />
-                    <SchoolCardSkeleton />
-                  </>
+                  <div style={{ height: '88px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        border: '3px solid #e0e0e0',
+                        borderTopColor: '#0F5AA8',
+                        borderRadius: '50%',
+                        animation: 'spin 0.8s linear infinite'
+                      }}></div>
+                      <span style={{ fontSize: '0.85rem', color: '#999' }}>載入中...</span>
+                    </div>
+                  </div>
                )}
-               
-               <div ref={observerTarget} style={{ height: '20px', marginTop: '10px' }}></div>
 
               {!isFetching && filteredSchools.length === 0 && schools.length > 0 && (
-                 <div className="text-center py-12 text-gray-500 bg-white rounded-lg shadow">
+                 <div style={{ minHeight: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.9rem', background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                    符合條件的學校已被篩選移除 (請清除左側篩選)
                  </div>
               )}
 
               {!isFetching && schools.length === 0 && (
-                <div className="text-center py-12 text-gray-500 bg-white rounded-lg shadow">
+                <div style={{ minHeight: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.9rem', background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                   沒有符合條件的學校
                 </div>
               )}
               
               {!hasMore && schools.length > 0 && (
-                 <div className="text-center py-4 text-gray-400 text-sm">
+                 <div style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', fontSize: '0.875rem' }}>
                     已經到底囉
                  </div>
               )}
+              
+               {/* 觀察目標：只在還有更多資料時才用於觸發加載 */}
+               {hasMore && <div ref={observerTarget} style={{ height: '2px', marginTop: '4px' }}></div>}
             </div>
           </section>
         </div>

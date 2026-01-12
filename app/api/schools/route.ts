@@ -748,19 +748,26 @@ export async function GET(request: Request) {
         };
 
         // 只有在不顯示未通過門檻科系時，才在 aggregation 階段過濾
-        // 如果 includeFailedThreshold=true，則保留所有科系，之後在 JS 層處理
+        // 重要：不能使用 exam_thresholds exists 來過濾，因為這會排除沒有門檻的科系
+        // 而沒有門檻的科系應該始終顯示 (即使不勾選「顯示未通過門檻」)
+        // 正確做法：只對 有門檻的科系 檢查是否通過
         if (!includeFailedThreshold) {
-          advancedMatch["__target_plan.exam_thresholds"] = {
-            $exists: true,
-            $ne: [],
+          // 改成：如果有門檻，則必須通過；如果沒有門檻，則保留
+          // 使用 $expr 中的 $or 來組合三個條件
+          const thresholdCheckOrNoThreshold = {
+            $or: [
+              { $eq: [{ $ifNull: ["$__target_plan.exam_thresholds", null] }, null] }, // 沒有門檻的科系
+              { $eq: [{ $size: { $ifNull: ["$__target_plan.exam_thresholds", []] } }, 0] }, // 空陣列視為沒有門檻
+              thresholdCheckExpr // 有門檻且通過的科系
+            ]
           };
 
           if (advancedMatch["$expr"]) {
             advancedMatch["$expr"] = {
-              $and: [advancedMatch["$expr"], thresholdCheckExpr],
+              $and: [advancedMatch["$expr"], thresholdCheckOrNoThreshold],
             };
           } else {
-            advancedMatch["$expr"] = thresholdCheckExpr;
+            advancedMatch["$expr"] = thresholdCheckOrNoThreshold;
           }
         }
       }

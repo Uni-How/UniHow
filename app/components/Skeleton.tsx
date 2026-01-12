@@ -1,27 +1,36 @@
+// Skeleton 組件 - 使用 CSS-only 動畫避免閃爍
+// 使用 transform 代替 background-position 來實現更流暢的動畫
+
 // Base Skeleton component
 export default function Skeleton({ className = '', style = {} }: { className?: string; style?: React.CSSProperties }) {
   return (
     <div className={`skeleton ${className}`} style={style}>
       <style jsx>{`
         .skeleton {
-          background-color: #e0e0e0;
-          background-image: linear-gradient(
-            90deg,
-            #e0e0e0 0px,
-            #f0f0f0 40px,
-            #e0e0e0 80px
-          );
-          background-size: 200% 100%;
+          background-color: #e8e8e8;
           border-radius: 4px;
-          animation: skeleton-loading 1.5s infinite linear;
+          overflow: hidden;
+          position: relative;
         }
-
-        @keyframes skeleton-loading {
-          0% {
-            background-position: -200px 0;
-          }
+        .skeleton::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.4) 50%,
+            transparent 100%
+          );
+          transform: translateX(-100%);
+          animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
           100% {
-            background-position: calc(200px + 100%) 0;
+            transform: translateX(100%);
           }
         }
       `}</style>
@@ -50,19 +59,38 @@ export function SchoolCardSkeleton() {
         .skeleton-card {
           pointer-events: none;
         }
+        .skeleton-thumb,
+        .skeleton-text,
+        .skeleton-tag {
+          background-color: #e8e8e8;
+          overflow: hidden;
+          position: relative;
+        }
+        .skeleton-thumb::after,
+        .skeleton-text::after,
+        .skeleton-tag::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.4) 50%,
+            transparent 100%
+          );
+          transform: translateX(-100%);
+          animation: shimmer 1.5s infinite;
+        }
         .skeleton-thumb {
           width: 120px;
           min-width: 120px;
           height: 80px;
-          background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
           border-radius: 8px;
         }
         .skeleton-text {
-          background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
           border-radius: 4px;
         }
         .skeleton-title {
@@ -87,14 +115,12 @@ export function SchoolCardSkeleton() {
         .skeleton-tag {
           width: 50px;
           height: 22px;
-          background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
           border-radius: 12px;
         }
         @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
+          100% {
+            transform: translateX(100%);
+          }
         }
       `}</style>
     </article>
@@ -129,10 +155,30 @@ export function DepartmentListSkeleton() {
           padding-bottom: 12px;
           border-bottom: 1px solid #eee;
         }
-        .skeleton-text {
-          background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%);
-          background-size: 200% 100%;
+        .skeleton-text,
+        .skeleton-toggle {
+          background-color: #e8e8e8;
+          overflow: hidden;
+          position: relative;
+        }
+        .skeleton-text::after,
+        .skeleton-toggle::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.4) 50%,
+            transparent 100%
+          );
+          transform: translateX(-100%);
           animation: shimmer 1.5s infinite;
+        }
+        .skeleton-text {
           border-radius: 4px;
         }
         .skeleton-title {
@@ -142,9 +188,6 @@ export function DepartmentListSkeleton() {
         .skeleton-toggle {
           width: 80px;
           height: 28px;
-          background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
           border-radius: 6px;
         }
         .skeleton-items {
@@ -167,8 +210,9 @@ export function DepartmentListSkeleton() {
           height: 12px;
         }
         @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
+          100% {
+            transform: translateX(100%);
+          }
         }
       `}</style>
     </div>
@@ -198,12 +242,34 @@ export function SchoolDetailSkeleton() {
         .skeleton-detail {
           pointer-events: none;
         }
+        .skeleton-image,
+        .skeleton-text,
+        .skeleton-row {
+          background-color: #e8e8e8;
+          overflow: hidden;
+          position: relative;
+        }
+        .skeleton-image::after,
+        .skeleton-text::after,
+        .skeleton-row::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.4) 50%,
+            transparent 100%
+          );
+          transform: translateX(-100%);
+          animation: shimmer 1.5s infinite;
+        }
         .skeleton-image {
           width: 100%;
           height: 160px;
-          background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
           border-radius: 12px;
           margin-bottom: 16px;
         }
@@ -211,9 +277,6 @@ export function SchoolDetailSkeleton() {
           padding: 0 4px;
         }
         .skeleton-text {
-          background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
           border-radius: 4px;
         }
         .skeleton-title {
@@ -249,17 +312,15 @@ export function SchoolDetailSkeleton() {
         }
         .skeleton-row {
           height: 36px;
-          background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
           border-radius: 6px;
         }
         .skeleton-header-row {
-          background: linear-gradient(90deg, #d8e8f8 25%, #e8f0f8 50%, #d8e8f8 75%);
+          background-color: #d8e8f8;
         }
         @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
+          100% {
+            transform: translateX(100%);
+          }
         }
       `}</style>
     </aside>

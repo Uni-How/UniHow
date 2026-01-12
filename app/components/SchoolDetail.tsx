@@ -187,9 +187,23 @@ export default function SchoolDetail({ school, selectedYear, selectedDeptIndex }
   }
 
   const getSchoolImage = (school: ISchool) => {
-    if (school.school_images && school.school_images.length > 0) {
-      return school.school_images[0];
+    const urls = school.school_images || [];
+    const hasImageExt = (u: string) => /\.(jpg|jpeg|png|webp|gif|svg)(\?|#|$)/i.test(u);
+
+    for (const raw of urls) {
+      const clean = raw?.trim();
+      if (!clean) continue;
+      const normalized = clean.replace(/\s+/g, '');
+      try {
+        const urlObj = new URL(normalized);
+        if ((urlObj.protocol === 'http:' || urlObj.protocol === 'https:') && hasImageExt(urlObj.pathname + urlObj.search)) {
+          return urlObj.toString();
+        }
+      } catch (e) {
+        // ignore invalid URL
+      }
     }
+
     return `https://placehold.co/800x400/e0e0e0/666?text=${encodeURIComponent(school.school_name)}`;
   };
 
